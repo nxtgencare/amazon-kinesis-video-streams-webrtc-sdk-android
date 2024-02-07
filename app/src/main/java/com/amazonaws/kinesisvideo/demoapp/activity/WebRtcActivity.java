@@ -175,14 +175,14 @@ public class WebRtcActivity extends AppCompatActivity {
      * offer/answer for a peer connection has been received and sent, the PeerConnection is added
      * to this map.
      */
-    private final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<String, PeerConnection>();
+    private final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<>();
 
     /**
      * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
      * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
      * this queue until after we send the answer and the peer connection is established.
      */
-    private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<String, Queue<IceCandidate>>();
+    private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<>();
 
     private void initWsConnection() {
 
