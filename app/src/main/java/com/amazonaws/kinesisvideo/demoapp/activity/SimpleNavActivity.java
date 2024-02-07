@@ -71,23 +71,6 @@ public class SimpleNavActivity extends AppCompatActivity
 
         if (id == R.id.nav_logout) {
             AWSMobileClient.getInstance().signOut();
-            AWSMobileClient.getInstance().showSignIn(this,
-                    SignInUIOptions.builder()
-                            .logo(R.mipmap.kinesisvideo_logo)
-                            .backgroundColor(Color.WHITE)
-                            .nextActivity(SimpleNavActivity.class)
-                            .build(),
-                    new Callback<UserStateDetails>() {
-                        @Override
-                        public void onResult(UserStateDetails result) {
-                            Log.d(TAG, "onResult: User sign-in " + result.getUserState());
-                        }
-
-                        @Override
-                        public void onError(Exception e) {
-                            Log.e(TAG, "onError: User sign-in", e);
-                        }
-                    });
         }
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);

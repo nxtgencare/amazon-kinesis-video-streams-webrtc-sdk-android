@@ -14,11 +14,14 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.os.Build;
@@ -37,6 +40,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
@@ -106,7 +110,6 @@ import javax.microedition.khronos.egl.EGLContext;
 public class WebRtcActivity extends AppCompatActivity {
     private static final String TAG = "KVSWebRtcActivity";
     private static final String AudioTrackID = "KvsAudioTrack";
-    private static final String VideoTrackID = "KvsVideoTrack";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
     private static final int VIDEO_SIZE_WIDTH = 400;
     private static final int VIDEO_SIZE_HEIGHT = 300;
@@ -118,8 +121,8 @@ public class WebRtcActivity extends AppCompatActivity {
     private static volatile SignalingServiceWebSocketClient client;
     private PeerConnectionFactory peerConnectionFactory;
 
-    private VideoSource videoSource;
-    private VideoTrack localVideoTrack;
+    //private VideoSource videoSource;
+    //private VideoTrack localVideoTrack;
 
     private AudioManager audioManager;
     private int originalAudioMode;
@@ -127,13 +130,13 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private AudioTrack localAudioTrack;
 
-    private SurfaceViewRenderer localView;
-    private SurfaceViewRenderer remoteView;
+    //private SurfaceViewRenderer localView;
+    //private SurfaceViewRenderer remoteView;
 
     private PeerConnection localPeer;
 
     private EglBase rootEglBase = null;
-    private VideoCapturer videoCapturer;
+    //private VideoCapturer videoCapturer;
 
     private final List<IceServer> peerIceServers = new ArrayList<>();
 
@@ -294,7 +297,6 @@ public class WebRtcActivity extends AppCompatActivity {
             if (isValidClient()) {
 
                 Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
-
                 if (master) {
 
                     // If webrtc endpoint is non-null ==> Ingest media was checked
@@ -405,22 +407,22 @@ public class WebRtcActivity extends AppCompatActivity {
             rootEglBase = null;
         }
 
-        if (remoteView != null) {
+/*        if (remoteView != null) {
             remoteView.release();
             remoteView = null;
-        }
+        }*/
 
         if (localPeer != null) {
             localPeer.dispose();
             localPeer = null;
         }
 
-        if (videoSource != null) {
+/*        if (videoSource != null) {
             videoSource.dispose();
             videoSource = null;
-        }
+        }*/
 
-        if (videoCapturer != null) {
+        /*if (videoCapturer != null) {
             try {
                 videoCapturer.stopCapture();
             } catch (InterruptedException e) {
@@ -432,7 +434,7 @@ public class WebRtcActivity extends AppCompatActivity {
         if (localView != null) {
             localView.release();
             localView = null;
-        }
+        }*/
 
         if (client != null) {
             client.disconnect();
@@ -546,20 +548,20 @@ public class WebRtcActivity extends AppCompatActivity {
         // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
-        videoCapturer = createVideoCapturer();
+        // videoCapturer = createVideoCapturer();
 
         // Local video view
-        localView = findViewById(R.id.local_view);
+        /*localView = findViewById(R.id.local_view);
         localView.init(rootEglBase.getEglBaseContext(), null);
-        localView.setEnableHardwareScaler(true);
+        localView.setEnableHardwareScaler(true);*/
 
 
-        videoSource = peerConnectionFactory.createVideoSource(false);
+        /*videoSource = peerConnectionFactory.createVideoSource(false);
         SurfaceTextureHelper surfaceTextureHelper = SurfaceTextureHelper.create(Thread.currentThread().getName(), rootEglBase.getEglBaseContext());
         videoCapturer.initialize(surfaceTextureHelper, this.getApplicationContext(), videoSource.getCapturerObserver());
-
-        localVideoTrack = peerConnectionFactory.createVideoTrack(VideoTrackID, videoSource);
-        localVideoTrack.addSink(localView);
+*/
+        /*localVideoTrack = peerConnectionFactory.createVideoTrack(VideoTrackID, videoSource);
+        localVideoTrack.addSink(localView);*/
 
         if (isAudioSent) {
             AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
@@ -572,11 +574,11 @@ public class WebRtcActivity extends AppCompatActivity {
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
 
         // Start capturing video
-        videoCapturer.startCapture(VIDEO_SIZE_WIDTH, VIDEO_SIZE_HEIGHT, VIDEO_FPS);
+        /*videoCapturer.startCapture(VIDEO_SIZE_WIDTH, VIDEO_SIZE_HEIGHT, VIDEO_FPS);
         localVideoTrack.setEnabled(true);
-
-        remoteView = findViewById(R.id.remote_view);
-        remoteView.init(rootEglBase.getEglBaseContext(), null);
+*/
+/*        remoteView = findViewById(R.id.remote_view);
+        remoteView.init(rootEglBase.getEglBaseContext(), null);*/
 
         dataChannelText = findViewById(R.id.data_channel_text);
         sendDataChannelButton = findViewById(R.id.send_data_channel_text);
@@ -618,6 +620,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void createLocalPeerConnection() {
 
+        final Context context = this;
         final PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(peerIceServers);
 
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
@@ -699,6 +702,16 @@ public class WebRtcActivity extends AppCompatActivity {
                             final NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
 
                             // notificationId is a unique int for each notification that you must define
+                            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                                // TODO: Consider calling
+                                //    ActivityCompat#requestPermissions
+                                // here to request the missing permissions, and then overriding
+                                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                //                                          int[] grantResults)
+                                // to handle the case where the user grants the permission. See the documentation
+                                // for ActivityCompat#requestPermissions for more details.
+                                return;
+                            }
                             notificationManager.notify(mNotificationId++, builder.build());
 
                             Toast.makeText(getApplicationContext(), "New message from peer, check notification.", Toast.LENGTH_SHORT).show();
@@ -748,15 +761,14 @@ public class WebRtcActivity extends AppCompatActivity {
 
         final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
 
-        if (!stream.addTrack(localVideoTrack)) {
+/*        if (!stream.addTrack(localVideoTrack)) {
             Log.e(TAG, "Add video track failed");
-        }
+        }*/
 
-        localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
+        //localPeer.addTrack(stream.videoTracks.get(0), Collections.singletonList(stream.getId()));
 
         if (isAudioSent) {
             if (!stream.addTrack(localAudioTrack)) {
-
                 Log.e(TAG, "Add audio track failed");
             }
 
@@ -880,7 +892,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private void addRemoteStreamToVideoView(MediaStream stream) {
 
-        final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0 ? stream.videoTracks.get(0) : null;
+        //final VideoTrack remoteVideoTrack = stream.videoTracks != null && stream.videoTracks.size() > 0 ? stream.videoTracks.get(0) : null;
 
         AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
 
@@ -891,7 +903,7 @@ public class WebRtcActivity extends AppCompatActivity {
             audioManager.setSpeakerphoneOn(true);
         }
 
-        if (remoteVideoTrack != null) {
+        /*if (remoteVideoTrack != null) {
             runOnUiThread(() -> {
                 try {
                     Log.d(TAG, "remoteVideoTrackId=" + remoteVideoTrack.id() + " videoTrackState=" + remoteVideoTrack.state());
@@ -904,7 +916,7 @@ public class WebRtcActivity extends AppCompatActivity {
             });
         } else {
             Log.e(TAG, "Error in setting remote track");
-        }
+        }*/
 
     }
 
@@ -940,12 +952,12 @@ public class WebRtcActivity extends AppCompatActivity {
 
     @SuppressLint("ClickableViewAccessibility")
     private void resizeLocalView() {
-        final DisplayMetrics displayMetrics = new DisplayMetrics();
-        final ViewGroup.LayoutParams lp = localView.getLayoutParams();
-        getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        lp.height = (int) (displayMetrics.heightPixels * 0.25);
-        lp.width = (int) (displayMetrics.widthPixels * 0.25);
-        localView.setLayoutParams(lp);
+        //final DisplayMetrics displayMetrics = new DisplayMetrics();
+        //final ViewGroup.LayoutParams lp = localView.getLayoutParams();
+        //getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+        //lp.height = (int) (displayMetrics.heightPixels * 0.25);
+        //lp.width = (int) (displayMetrics.widthPixels * 0.25);
+/*        localView.setLayoutParams(lp);
         localView.setOnTouchListener(new View.OnTouchListener() {
             private final int mMarginRight = displayMetrics.widthPixels;
             private final int mMarginBottom = displayMetrics.heightPixels;
@@ -990,10 +1002,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 }
                 return false;
             }
-        });
+        });*/
     }
 
-    private void resizeRemoteView() {
+/*    private void resizeRemoteView() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             final DisplayMetrics displayMetrics = new DisplayMetrics();
             final ViewGroup.LayoutParams lp = remoteView.getLayoutParams();
@@ -1001,9 +1013,9 @@ public class WebRtcActivity extends AppCompatActivity {
             lp.height = (int) (displayMetrics.heightPixels * 0.75);
             lp.width = (int) (displayMetrics.widthPixels * 0.75);
             remoteView.setLayoutParams(lp);
-            localView.bringToFront();
+            //localView.bringToFront();
         }
-    }
+    }*/
 
     private void createNotificationChannel() {
         // Create the NotificationChannel, but only on API 26+ because

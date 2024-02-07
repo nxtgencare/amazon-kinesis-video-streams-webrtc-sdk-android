@@ -1,7 +1,6 @@
 package com.amazonaws.kinesisvideo.demoapp.fragment;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
@@ -11,7 +10,6 @@ import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -19,7 +17,6 @@ import android.widget.CheckedTextView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -55,7 +52,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
@@ -83,10 +79,9 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     };
 
     private static final String[] KEY_OF_OPTIONS = {
-            KEY_SEND_VIDEO,
-            KEY_SEND_AUDIO,
+        KEY_SEND_VIDEO,
+        KEY_SEND_AUDIO,
     };
-
 
     private EditText mChannelName;
     private EditText mClientId;

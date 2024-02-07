@@ -8,13 +8,19 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.util.ActivityUtils;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
 import com.amazonaws.mobile.client.SignInUIOptions;
 import com.amazonaws.mobile.client.UserStateDetails;
+import com.amazonaws.mobile.client.results.SignInResult;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collections;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
 public class StartUpActivity extends AppCompatActivity {
@@ -25,43 +31,13 @@ public class StartUpActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         final AWSMobileClient auth = AWSMobileClient.getInstance();
+
         initializeMobileClient(auth);
 
         final AppCompatActivity thisActivity = this;
         supportFinishAfterTransition();
 
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                if (auth.isSignedIn()) {
-                    ActivityUtils.startActivity(thisActivity, SimpleNavActivity.class);
-                } else {
-                    auth.showSignIn(thisActivity,
-                            SignInUIOptions.builder()
-                                    .logo(R.mipmap.kinesisvideo_logo)
-                                    .backgroundColor(Color.WHITE)
-                                    .nextActivity(SimpleNavActivity.class)
-                                    .build(),
-                            new Callback<UserStateDetails>() {
-                                @Override
-                                public void onResult(UserStateDetails result) {
-                                    Log.d(TAG, "onResult: User signed-in " + result.getUserState());
-                                }
-
-                                @Override
-                                public void onError(final Exception e) {
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            Log.e(TAG, "onError: User sign-in error", e);
-                                            Toast.makeText(StartUpActivity.this, "User sign-in error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                                        }
-                                    });
-                                }
-                            });
-                }
-            }
-        });
+        AsyncTask.execute(() -> ActivityUtils.startActivity(thisActivity, SimpleNavActivity.class));
     }
 
     private void initializeMobileClient(AWSMobileClient client) {
@@ -70,7 +46,20 @@ public class StartUpActivity extends AppCompatActivity {
             @Override
             public void onResult(UserStateDetails result) {
                 Log.d(TAG, "onResult: user state: " + result.getUserState());
-                latch.countDown();
+
+                client.signIn(BuildConfig.KINESIS_USERNAME, BuildConfig.KINESIS_PASSWORD, Collections.emptyMap(), new Callback<SignInResult>() {
+                    @Override
+                    public void onResult(SignInResult result) {
+                        Log.d(TAG,String.format("Sign In Attempt Info: sign in state: %s",result.getSignInState()));
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Log.e(TAG, "Sign In Attempt error", e);
+                        latch.countDown();
+                    }
+                });
             }
 
             @Override

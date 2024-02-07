@@ -14,6 +14,11 @@ android {
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        Properties properties = new Properties()
+        properties.load(project.rootProject.file('local.properties').newDataInputStream())
+        buildConfigField "String", "KINESIS_USERNAME", "\"" + properties.getProperty('kinesis.username') + "\""
+        buildConfigField "String", "KINESIS_PASSWORD", "\"" + properties.getProperty('kinesis.password') + "\""
     }
 
     buildTypes {
@@ -27,6 +32,7 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    namespace 'com.amazonaws.kinesisvideo.demoapp'
 }
 
 dependencies {
@@ -39,6 +45,7 @@ dependencies {
     implementation("com.amazonaws:aws-android-sdk-mobile-client:$aws_version@aar") { transitive = true }
     implementation("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
     implementation("com.amazonaws:aws-android-sdk-auth-ui:$aws_version@aar") { transitive = true }
+    implementation("io.getstream:stream-webrtc-android:1.1.0")
 
     implementation 'org.awaitility:awaitility:4.2.0'
     implementation 'org.json:json:20190722'
