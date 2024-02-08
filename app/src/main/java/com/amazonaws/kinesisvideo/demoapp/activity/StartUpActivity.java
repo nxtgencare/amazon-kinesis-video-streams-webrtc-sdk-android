@@ -1,26 +1,19 @@
 package com.amazonaws.kinesisvideo.demoapp.activity;
 
-import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
-import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.util.ActivityUtils;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.client.Callback;
-import com.amazonaws.mobile.client.SignInUIOptions;
 import com.amazonaws.mobile.client.UserStateDetails;
 import com.amazonaws.mobile.client.results.SignInResult;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
-import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 
 public class StartUpActivity extends AppCompatActivity {
@@ -42,6 +35,7 @@ public class StartUpActivity extends AppCompatActivity {
 
     private void initializeMobileClient(AWSMobileClient client) {
         final CountDownLatch latch = new CountDownLatch(1);
+
         client.initialize(getApplicationContext(), new Callback<UserStateDetails>() {
             @Override
             public void onResult(UserStateDetails result) {

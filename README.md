@@ -105,3 +105,12 @@ rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GAT
 ## License
 
 This library is licensed under the [Apache 2.0 License](https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-android/blob/master/LICENSE).
+
+### Nxtgen Change Notes:
+
+We're having the app automatically provide credentials that we've created by hand so that the user only authenticates with our system.
+
+By default Amazon sets a temporary password, and the first login the user has to change it. That unfortunately only works with their flow,
+so we're either going to have to figure out how to do that step automatically as well, or have a hacky app to do it ourselves in the future.
+
+Since we're still in the proof of concept stage, it's not a huge deal though.
