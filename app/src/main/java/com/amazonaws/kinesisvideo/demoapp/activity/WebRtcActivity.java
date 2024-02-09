@@ -34,9 +34,6 @@ import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
-import com.amazonaws.regions.Region;
-import com.amazonaws.services.kinesisvideowebrtcstorage.AWSKinesisVideoWebRTCStorageClient;
-import com.amazonaws.services.kinesisvideowebrtcstorage.model.JoinStorageSessionRequest;
 import com.google.common.base.Strings;
 
 import org.webrtc.AudioSource;
@@ -54,7 +51,6 @@ import org.webrtc.PeerConnection.IceServer;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.RTCStats;
 import org.webrtc.SessionDescription;
-import org.webrtc.VideoCodecInfo;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
@@ -83,8 +79,6 @@ import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurat
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_STREAM_ARN;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WEBRTC_ENDPOINT;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
 public class WebRtcActivity extends AppCompatActivity {
@@ -477,7 +471,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
                 super.onAddStream(mediaStream);
                 Log.d(TAG, "Adding remote audio stream to the view");
-                addRemoteStreamToVideoView(mediaStream);
+                addRemoteStreamToView(mediaStream);
             }
 
             @Override
@@ -640,7 +634,6 @@ public class WebRtcActivity extends AppCompatActivity {
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
         if (localPeer == null) {
-
             createLocalPeerConnection();
         }
 
@@ -691,7 +684,7 @@ public class WebRtcActivity extends AppCompatActivity {
         }, sdpMediaConstraints);
     }
 
-    private void addRemoteStreamToVideoView(MediaStream stream) {
+    private void addRemoteStreamToView(MediaStream stream) {
         AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
 
         if (remoteAudioTrack != null) {
