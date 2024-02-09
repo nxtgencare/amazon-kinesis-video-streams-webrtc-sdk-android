@@ -92,8 +92,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private static final String AudioTrackID = "KvsAudioTrack";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
     private static final String CHANNEL_ID = "WebRtcDataChannel";
-    private static final boolean ENABLE_INTEL_VP8_ENCODER = true;
-    private static final boolean ENABLE_H264_HIGH_PROFILE = true;
 
     private static volatile SignalingServiceWebSocketClient client;
     private PeerConnectionFactory peerConnectionFactory;
