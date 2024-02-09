@@ -68,48 +68,26 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_PASSWORD = "iceServerPassword";
     public static final String KEY_ICE_SERVER_TTL = "iceServerTTL";
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
-    public static final String KEY_CAMERA_FRONT_FACING = "cameraFrontFacing";
-
-    private static final String KEY_SEND_VIDEO = "sendVideo";
-    public static final String KEY_SEND_AUDIO = "sendAudio";
-
-    private static final String[] WEBRTC_OPTIONS = {
-            "Send Video",
-            "Send Audio",
-    };
-
-    private static final String[] KEY_OF_OPTIONS = {
-        KEY_SEND_VIDEO,
-        KEY_SEND_AUDIO,
-    };
 
     private EditText mChannelName;
     private EditText mClientId;
     private EditText mRegion;
-    private Spinner mCameras;
-    private CheckBox mIngestMedia;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
     private String mChannelArn = null;
     private String mStreamArn = null;
-    private ListView mOptions;
 
-    private SimpleNavActivity navActivity;
-
-    public static StreamWebRtcConfigurationFragment newInstance(SimpleNavActivity navActivity) {
+    public static StreamWebRtcConfigurationFragment newInstance() {
         StreamWebRtcConfigurationFragment s = new StreamWebRtcConfigurationFragment();
-        s.navActivity = navActivity;
         return s;
     }
 
     @Override
-    public View onCreateView(final LayoutInflater inflater,
-                             final ViewGroup container,
-                             final Bundle savedInstanceState) {
+    public View onCreateView(final LayoutInflater inflater, final ViewGroup container, final Bundle savedInstanceState) {
         if (getActivity() != null) {
             if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
                     || ContextCompat.checkSelfPermission(this.getActivity(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this.getActivity(), new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO}, 9393);
+                ActivityCompat.requestPermissions(this.getActivity(), new String[]{Manifest.permission.RECORD_AUDIO}, 9393);
             }
 
             getActivity().setTitle(getActivity().getString(R.string.title_fragment_channel));
@@ -128,49 +106,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mChannelName = view.findViewById(R.id.channel_name);
         mClientId = view.findViewById(R.id.client_id);
         mRegion = view.findViewById(R.id.region);
-        mIngestMedia = view.findViewById(R.id.ingest_media);
         setRegionFromCognito();
-
-        mOptions = view.findViewById(R.id.webrtc_options);
-        mOptions.setAdapter(new ArrayAdapter<String>(getActivity(), android.R.layout.simple_list_item_multiple_choice, WEBRTC_OPTIONS) {
-            @NonNull
-            @Override
-            public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-                if (convertView == null) {
-                    View v = getLayoutInflater().inflate(android.R.layout.simple_list_item_multiple_choice, null);
-
-                    final CheckedTextView ctv = v.findViewById(android.R.id.text1);
-                    ctv.setText(WEBRTC_OPTIONS[position]);
-
-                    // Send video is enabled by default and cannot uncheck
-                    if (position == 0) {
-                        ctv.setEnabled(false);
-                        ctv.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                ctv.setChecked(true);
-                            }
-                        });
-                    }
-                    return v;
-                }
-
-                return convertView;
-            }
-        });
-        mOptions.setItemsCanFocus(false);
-        mOptions.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
-        mOptions.setItemChecked(0, true);
-
-        mCameras = view.findViewById(R.id.camera_spinner);
-
-        final List<String> cameraList = Arrays.asList("Front Camera", "Back Camera");
-
-        if (getContext() != null) {
-            mCameras.setAdapter(new ArrayAdapter<>(getContext(),
-                    android.R.layout.simple_spinner_dropdown_item,
-                    cameraList));
-        }
     }
 
     private void setRegionFromCognito() {
@@ -181,31 +117,10 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private View.OnClickListener startMasterActivityWhenClicked() {
-        return new View.OnClickListener() {
-            @Override
-            public void onClick(final View view) {
-                startMasterActivity();
-            }
-        };
+        return view -> startMasterActivity();
     }
 
     private void startMasterActivity() {
-
-        if (mIngestMedia.isChecked()) {
-            // Check that the "Send Audio" and "Send Video" boxes are enabled.
-            final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
-            for (int i = 0; i < mOptions.getCount(); i++) {
-                if (!checked.get(i)) {
-                    new AlertDialog.Builder(getActivity())
-                            .setPositiveButton("OK", null)
-                            .setMessage("Audio and video must be sent to ingest media!")
-                            .create()
-                            .show();
-                    return;
-                }
-            }
-        }
-
         if (!updateSignalingChannelInfo(mRegion.getText().toString(),
                 mChannelName.getText().toString(),
                 ChannelRole.MASTER)) {
@@ -221,12 +136,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private View.OnClickListener startViewerActivityWhenClicked() {
-        return new View.OnClickListener() {
-            @Override
-            public void onClick(final View view) {
-                startViewerActivity();
-            }
-        };
+        return view -> startViewerActivity();
     }
 
     private void startViewerActivity() {
@@ -287,13 +197,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 extras.putString(KEY_WEBRTC_ENDPOINT, endpoint.getResourceEndpoint());
             }
         }
-
-        final SparseBooleanArray checked = mOptions.getCheckedItemPositions();
-        for (int i = 0; i < mOptions.getCount(); i++) {
-            extras.putBoolean(KEY_OF_OPTIONS[i], checked.get(i));
-        }
-
-        extras.putBoolean(KEY_CAMERA_FRONT_FACING, mCameras.getSelectedItem().equals("Front Camera"));
 
         return extras;
     }
@@ -362,7 +265,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             final String channelName = (String) objects[1];
             final ChannelRole role = (ChannelRole) objects[2];
 
-            // Step 1. Create Kinesis Video Client
             final AWSKinesisVideoClient awsKinesisVideoClient;
             try {
                 awsKinesisVideoClient = mFragment.get().getAwsKinesisVideoClient(region);
@@ -399,31 +301,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 return "Describe Signaling Channel failed with Exception " + ex.getLocalizedMessage();
             }
 
-            // Step 3. If we are ingesting media, we need to check if the Signaling Channel has a Kinesis Video
-            //         Stream configured to write media to. We can call the DescribeMediaStorageConfiguration API
-            //         to determine this.
-            if (role == ChannelRole.MASTER && mFragment.get().mIngestMedia.isChecked()) {
-                try {
-                    final DescribeMediaStorageConfigurationResult describeMediaStorageConfigurationResult = awsKinesisVideoClient.describeMediaStorageConfiguration(
-                            new DescribeMediaStorageConfigurationRequest()
-                                    .withChannelARN(mFragment.get().mChannelArn));
-
-                    if (!"ENABLED".equalsIgnoreCase(describeMediaStorageConfigurationResult.getMediaStorageConfiguration().getStatus())) {
-                        Log.e(TAG, "Media storage is not enabled for this channel!");
-                        return "Media Storage is DISABLED for this channel!";
-                    }
-                    mFragment.get().mStreamArn = describeMediaStorageConfigurationResult.getMediaStorageConfiguration().getStreamARN();
-                } catch (Exception ex) {
-                    return "Describe Media Storage Configuration failed with Exception " + ex.getLocalizedMessage();
-                }
-            }
-
-            final String[] protocols;
-            if (mFragment.get().mIngestMedia.isChecked()) {
-                protocols = new String[]{"WSS", "HTTPS", "WEBRTC"};
-            } else {
-                protocols = new String[]{"WSS", "HTTPS"};
-            }
+            final String[] protocols = new String[]{"WSS", "HTTPS"};
 
             // Step 4. Use the Kinesis Video Client to call GetSignalingChannelEndpoint.
             //         Each signaling channel is assigned an HTTPS and WSS endpoint to connect
@@ -433,12 +311,12 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             //         will result in an InvalidArgumentException.
             try {
                 final GetSignalingChannelEndpointResult getSignalingChannelEndpointResult = awsKinesisVideoClient.getSignalingChannelEndpoint(
-                        new GetSignalingChannelEndpointRequest()
-                                .withChannelARN(mFragment.get().mChannelArn)
-                                .withSingleMasterChannelEndpointConfiguration(
-                                        new SingleMasterChannelEndpointConfiguration()
-                                                .withProtocols(protocols)
-                                                .withRole(role)));
+                    new GetSignalingChannelEndpointRequest()
+                        .withChannelARN(mFragment.get().mChannelArn)
+                        .withSingleMasterChannelEndpointConfiguration(
+                                new SingleMasterChannelEndpointConfiguration()
+                                    .withProtocols(protocols)
+                                    .withRole(role)));
 
                 Log.i(TAG, "Endpoints " + getSignalingChannelEndpointResult.toString());
                 mFragment.get().mEndpointList.addAll(getSignalingChannelEndpointResult.getResourceEndpointList());
@@ -479,10 +357,10 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         protected void onPostExecute(final String result) {
             if (result != null) {
                 new AlertDialog.Builder(mFragment.get().getContext())
-                        .setPositiveButton("OK", null)
-                        .setMessage(result)
-                        .create()
-                        .show();
+                    .setPositiveButton("OK", null)
+                    .setMessage(result)
+                    .create()
+                    .show();
             }
         }
     }

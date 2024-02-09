@@ -1,6 +1,5 @@
 package com.amazonaws.kinesisvideo.demoapp.activity;
 
-import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
@@ -16,9 +15,6 @@ import androidx.fragment.app.FragmentManager;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment;
 import com.amazonaws.mobile.client.AWSMobileClient;
-import com.amazonaws.mobile.client.Callback;
-import com.amazonaws.mobile.client.SignInUIOptions;
-import com.amazonaws.mobile.client.UserStateDetails;
 import com.google.android.material.navigation.NavigationView;
 
 
@@ -50,7 +46,7 @@ public class SimpleNavActivity extends AppCompatActivity
         if (savedInstanceState != null) {
             streamFragment = getSupportFragmentManager().findFragmentByTag(StreamWebRtcConfigurationFragment.class.getName());
         }
-        // Video only
+
         this.startConfigFragment();
     }
 
@@ -86,7 +82,7 @@ public class SimpleNavActivity extends AppCompatActivity
     public void startConfigFragment() {
         try {
             if (streamFragment == null) {
-                streamFragment = StreamWebRtcConfigurationFragment.newInstance(this);
+                streamFragment = StreamWebRtcConfigurationFragment.newInstance();
                 this.startFragment(streamFragment);
             }
         } catch (Exception e) {
