@@ -122,9 +122,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mChannelArn;
     private String mClientId;
 
-    private String webrtcEndpoint;
-    private String mStreamArn;
-
     private String mWssEndpoint;
     private String mRegion;
 
@@ -192,11 +189,6 @@ public class WebRtcActivity extends AppCompatActivity {
                 Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
 
                 createSdpAnswer();
-
-                if (master && webrtcEndpoint != null) {
-                    runOnUiThread(() -> Toast.makeText(getApplicationContext(), "Media is being recorded to " + mStreamArn, Toast.LENGTH_LONG).show());
-                    Log.i(TAG, "Media is being recorded to " + mStreamArn);
-                }
             }
 
             @Override
@@ -259,29 +251,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         if (isValidClient()) {
             Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
-            if (master) {
-                // If webrtc endpoint is non-null ==> Ingest media was checked
-                if (webrtcEndpoint != null) {
-                    new Thread(() -> {
-                        try {
-                            final AWSKinesisVideoWebRTCStorageClient storageClient = new AWSKinesisVideoWebRTCStorageClient(
-                                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials()
-                            );
-
-                            storageClient.setRegion(Region.getRegion(mRegion));
-                            storageClient.setSignerRegionOverride(mRegion);
-                            storageClient.setServiceNameIntern("kinesisvideo");
-                            storageClient.setEndpoint(webrtcEndpoint);
-
-                            Log.i(TAG, "Channel ARN is: " + mChannelArn);
-                            storageClient.joinStorageSession(new JoinStorageSessionRequest().withChannelArn(mChannelArn));
-                            Log.i(TAG, "Join storage session request sent!");
-                        } catch (Exception ex) {
-                            Log.e(TAG, "Error sending join storage session request!", ex);
-                        }
-                    }).start();
-                }
-            } else {
+            if (!master) {
                 Log.d(TAG, "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
                 createSdpOffer();
             }
@@ -408,9 +378,7 @@ public class WebRtcActivity extends AppCompatActivity {
 
         final Intent intent = getIntent();
         mChannelArn = intent.getStringExtra(KEY_CHANNEL_ARN);
-        mStreamArn = intent.getStringExtra(KEY_STREAM_ARN);
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
-        webrtcEndpoint = intent.getStringExtra(KEY_WEBRTC_ENDPOINT);
 
         mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         // If no client identifier is present, a random one will be created.
@@ -451,7 +419,13 @@ public class WebRtcActivity extends AppCompatActivity {
             .builder(this)
             .createInitializationOptions());
 
+        // codecs are mandatory even if we aren't using them.
+        final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
+        final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
+
         peerConnectionFactory = PeerConnectionFactory.builder()
+            .setVideoDecoderFactory(vdf)
+            .setVideoEncoderFactory(vef)
             .setAudioDeviceModule(JavaAudioDeviceModule.builder(getApplicationContext()).createAudioDeviceModule())
             .createPeerConnectionFactory();
 
