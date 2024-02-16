@@ -16,9 +16,7 @@ import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 
-import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
-import org.webrtc.DataChannel;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
@@ -35,7 +33,6 @@ import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -45,15 +42,16 @@ import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
-public class WebRtc {
-    private static final String TAG = "WebRtc";
+public class ViewerWebRtc {
+    private static final String TAG = "ViewerWebRtc";
     private static final String AudioTrackID = "KvsAudioTrack";
-    private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
 
     private static volatile SignalingServiceWebSocketClient client;
     private PeerConnectionFactory peerConnectionFactory;
 
     private String mChannelArn;
+    private String mClientId;
+
 
     private String mWssEndpoint;
     private String mRegion;
@@ -61,8 +59,6 @@ public class WebRtc {
     private AudioManager audioManager;
     private int originalAudioMode;
     private boolean originalSpeakerphoneOn;
-
-    private AudioTrack localAudioTrack;
 
     private PeerConnection localPeer;
 
@@ -90,8 +86,9 @@ public class WebRtc {
         return client != null && client.isOpen();
     }
 
-    public WebRtc(
+    public ViewerWebRtc(
         Context context,
+        String mClientId,
         String mChannelArn,
         String mWssEndpoint,
         ArrayList<String> mUserNames,
@@ -101,6 +98,7 @@ public class WebRtc {
         AudioManager audioManager
     ) {
         this.mChannelArn = mChannelArn;
+        this.mClientId = mClientId;
         this.mWssEndpoint = mWssEndpoint;
         this.mRegion = "ca-central-1";
         this.rootEglBase = EglBase.create();
@@ -142,10 +140,6 @@ public class WebRtc {
         // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
-        AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-        localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
-        localAudioTrack.setEnabled(true);
-
         this.audioManager = audioManager;
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
@@ -156,9 +150,9 @@ public class WebRtc {
         Consumer<Exception> signallingListeningExceptionHandler,
         Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
     ) throws Exception {
-        // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-2.html
-        final String masterEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
-        final URI signedUri = getSignedUri(mCreds, masterEndpoint);
+        // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
+        final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
+        final URI signedUri = getSignedUri(mCreds, viewerEndpoint);
 
         createLocalPeerConnection(iceConnectionStateChangedHandler);
         final String wsHost = signedUri.toString();
@@ -168,14 +162,7 @@ public class WebRtc {
         final SignalingListener signalingListener = new SignalingListener() {
             @Override
             public void onSdpOffer(final Event offerEvent) {
-                Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
-
-                final String sdp = Event.parseOfferEvent(offerEvent);
-
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
-                recipientClientId = offerEvent.getSenderClientId();
-                Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
-                createSdpAnswer(signallingListeningExceptionHandler);
+                Log.d(TAG, "Viewer should not be receiving SDP Offer");
             }
 
             @Override
@@ -194,7 +181,6 @@ public class WebRtc {
                 peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
                 // Check if ICE candidates are available in the queue and add the candidate
                 handlePendingIceCandidates(answerEvent.getSenderClientId());
-
             }
 
             @Override
@@ -234,6 +220,8 @@ public class WebRtc {
 
         if (isValidClient()) {
             Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
+            Log.d(TAG, "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
+            createSdpOffer(signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
         } else {
             Log.e(TAG, "Error in connecting to signaling service");
             // TODO: Better exceptions
@@ -328,8 +316,6 @@ public class WebRtc {
                 iceConnectionStateChangedHandler.accept(iceConnectionState);
             }
         });
-
-        addStreamToLocalPeer();
     }
 
     private Message createIceCandidateMessage(final IceCandidate iceCandidate) {
@@ -350,18 +336,6 @@ public class WebRtc {
         return new Message("ICE_CANDIDATE", recipientClientId, senderClientId,
             new String(Base64.encode(messagePayload.getBytes(),
                     Base64.URL_SAFE | Base64.NO_WRAP)));
-    }
-
-    private void addStreamToLocalPeer() {
-        final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
-        if (!stream.addTrack(localAudioTrack)) {
-            Log.e(TAG, "Add audio track failed");
-        }
-
-        if (stream.audioTracks.size() > 0) {
-            localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
-            Log.d(TAG, "Sending audio track");
-        }
     }
 
     // when local is set to be the master
@@ -393,6 +367,32 @@ public class WebRtc {
                     sdpAnswerErrorHandler.accept(new Exception(codecError));
                 } else {
                     sdpAnswerErrorHandler.accept(new Exception(error));
+                }
+            }
+        }, sdpMediaConstraints);
+    }
+
+    // when mobile sdk is viewer
+    private void createSdpOffer(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
+        MediaConstraints sdpMediaConstraints = new MediaConstraints();
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+
+        if (localPeer == null) {
+            createLocalPeerConnection(iceConnectionStateChangedHandler);
+        }
+
+        localPeer.createOffer(new KinesisVideoSdpObserver() {
+            @Override
+            public void onCreateSuccess(SessionDescription sessionDescription) {
+                super.onCreateSuccess(sessionDescription);
+                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
+                final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
+                if (isValidClient()) {
+                    client.sendSdpOffer(sdpOfferMessage);
+                } else {
+                    // TODO: Better exception
+                    signallingListeningExceptionHandler.accept(new Exception("SDP Client invalid"));
                 }
             }
         }, sdpMediaConstraints);
