@@ -33,46 +33,6 @@
             android:layout_width="match_parent"
             android:layout_height="20dp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Client Id"
-            tools:ignore="HardcodedText" />
-
-        <EditText
-            android:id="@+id/client_id"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text=""
-            android:hint="Client Id (optional)"
-            android:inputType="text"
-            tools:ignore="Autofill,HardcodedText" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
-
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Region"
-            tools:ignore="HardcodedText" />
-
-        <EditText
-            android:id="@+id/region"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text="us-west-2"
-            android:hint="Region in all lower case."
-            tools:ignore="Autofill,HardcodedText"
-            android:inputType="text" />
-
-        <Space
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
 
         <LinearLayout
             android:layout_width="match_parent"

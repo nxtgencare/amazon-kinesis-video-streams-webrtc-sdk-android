@@ -1,8 +1,6 @@
 package com.amazonaws.kinesisvideo.demoapp.activity;
 
 import android.Manifest;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -12,8 +10,7 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -36,7 +33,6 @@ import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.google.common.base.Strings;
 
-import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.DataChannel;
 import org.webrtc.DefaultVideoDecoderFactory;
@@ -49,42 +45,31 @@ import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnection.IceServer;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RTCStats;
 import org.webrtc.SessionDescription;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CHANNEL_ARN;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_CLIENT_ID;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_PASSWORD;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_URI;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_ICE_SERVER_USER_NAME;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_IS_MASTER;
-import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_REGION;
 import static com.amazonaws.kinesisvideo.demoapp.fragment.StreamWebRtcConfigurationFragment.KEY_WSS_ENDPOINT;
 
-public class WebRtcActivity extends AppCompatActivity {
-    private static final String TAG = "KVSWebRtcActivity";
-    private static final String AudioTrackID = "KvsAudioTrack";
-    private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
+public class ViewerWebRtcActivity extends AppCompatActivity {
+    private static final String TAG = "KVSViewerWebRtcActivity";
     private static final String CHANNEL_ID = "WebRtcDataChannel";
 
     private static volatile SignalingServiceWebSocketClient client;
@@ -94,8 +79,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private int originalAudioMode;
     private boolean originalSpeakerphoneOn;
 
-    private AudioTrack localAudioTrack;
-
     private PeerConnection localPeer;
 
     private EglBase rootEglBase = null;
@@ -104,14 +87,9 @@ public class WebRtcActivity extends AppCompatActivity {
 
     private boolean gotException = false;
 
-    private String recipientClientId;
-
     private int mNotificationId = 0;
 
-    private boolean master = true;
-
-    private EditText dataChannelText = null;
-    private Button sendDataChannelButton = null;
+    private TextView connectedStatusText = null;
 
     private String mChannelArn;
     private String mClientId;
@@ -120,11 +98,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private String mRegion;
 
     private AWSCredentials mCreds = null;
-
-    /**
-     * Prints WebRTC stats to the debug console every so often.
-     */
-    private final ScheduledExecutorService printStatsExecutor = Executors.newSingleThreadScheduledExecutor();
 
     /**
      * Mapping of established peer connections to the peer's sender id. In other words, if an SDP
@@ -141,29 +114,16 @@ public class WebRtcActivity extends AppCompatActivity {
     private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<>();
 
     private void initWsConnection() {
-
-        // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-2.html
-        final String masterEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
-
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
         final String viewerEndpoint = mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
 
         runOnUiThread(() -> mCreds = KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
 
-        final URI signedUri;
-        if (master) {
-            signedUri = getSignedUri(masterEndpoint);
-        } else {
-            signedUri = getSignedUri(viewerEndpoint);
-        }
+        final URI signedUri = getSignedUri(viewerEndpoint);
 
         if (signedUri == null) {
             gotException = true;
             return;
-        }
-
-        if (master) {
-            createLocalPeerConnection();
         }
 
         final String wsHost = signedUri.toString();
@@ -174,24 +134,13 @@ public class WebRtcActivity extends AppCompatActivity {
 
             @Override
             public void onSdpOffer(final Event offerEvent) {
-                Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
-
-                final String sdp = Event.parseOfferEvent(offerEvent);
-
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
-                recipientClientId = offerEvent.getSenderClientId();
-                Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
-
-                createSdpAnswer();
+                Log.d(TAG, "Viewer should not be receiving SDP Offer");
             }
 
             @Override
             public void onSdpAnswer(final Event answerEvent) {
-
                 Log.d(TAG, "SDP answer received from signaling");
-
                 final String sdp = Event.parseSdpEvent(answerEvent);
-
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
                 localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
@@ -204,7 +153,6 @@ public class WebRtcActivity extends AppCompatActivity {
                 peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
                 // Check if ICE candidates are available in the queue and add the candidate
                 handlePendingIceCandidates(answerEvent.getSenderClientId());
-
             }
 
             @Override
@@ -230,7 +178,6 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         };
 
-
         // Step 11. Create SignalingServiceWebSocketClient.
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
@@ -245,10 +192,8 @@ public class WebRtcActivity extends AppCompatActivity {
 
         if (isValidClient()) {
             Log.d(TAG, "Client connected to Signaling service " + client.isOpen());
-            if (!master) {
-                Log.d(TAG, "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
-                createSdpOffer();
-            }
+            Log.d(TAG, "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
+            createSdpOffer();
         } else {
             Log.e(TAG, "Error in connecting to signaling service");
             gotException = true;
@@ -285,7 +230,6 @@ public class WebRtcActivity extends AppCompatActivity {
     private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
-
         if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
             Log.d(TAG, "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
@@ -294,19 +238,15 @@ public class WebRtcActivity extends AppCompatActivity {
                 final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
                 pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
-            }
-
-            // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
-            else {
+            } else {
+                // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
                 final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
                 pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
             }
-        }
-
-        // This is the case where peer connection is established and ICE candidates are received for the established
-        // connection
-        else {
+        } else {
+            // This is the case where peer connection is established and ICE candidates are received for the established
+            // connection
             Log.d(TAG, "Peer connection found already");
             // Remote sent us ICE candidates, add to local peer connection
             final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
@@ -319,7 +259,6 @@ public class WebRtcActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         Thread.setDefaultUncaughtExceptionHandler(null);
-        printStatsExecutor.shutdownNow();
 
         audioManager.setMode(originalAudioMode);
         audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
@@ -374,19 +313,17 @@ public class WebRtcActivity extends AppCompatActivity {
         mChannelArn = intent.getStringExtra(KEY_CHANNEL_ARN);
         mWssEndpoint = intent.getStringExtra(KEY_WSS_ENDPOINT);
 
-        mClientId = intent.getStringExtra(KEY_CLIENT_ID);
         // If no client identifier is present, a random one will be created.
         if (Strings.isNullOrEmpty(mClientId)) {
             mClientId = UUID.randomUUID().toString();
         }
-        master = intent.getBooleanExtra(KEY_IS_MASTER, true);
+
         ArrayList<String> mUserNames = intent.getStringArrayListExtra(KEY_ICE_SERVER_USER_NAME);
         ArrayList<String> mPasswords = intent.getStringArrayListExtra(KEY_ICE_SERVER_PASSWORD);
         ArrayList<List<String>> mUrisList = (ArrayList<List<String>>) intent.getSerializableExtra(KEY_ICE_SERVER_URI);
-        mRegion = intent.getStringExtra(KEY_REGION);
+        mRegion = KinesisVideoWebRtcDemoApp.getRegion();
         rootEglBase = EglBase.create();
 
-        //TODO: add ui to control TURN only option
         final IceServer stun = IceServer
             .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
             .createIceServer();
@@ -426,18 +363,11 @@ public class WebRtcActivity extends AppCompatActivity {
         // Enable Google WebRTC debug logs
         Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
-        AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-        localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
-        localAudioTrack.setEnabled(true);
-
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
 
-        dataChannelText = findViewById(R.id.data_channel_text);
-        sendDataChannelButton = findViewById(R.id.send_data_channel_text);
-
-        createNotificationChannel();
+        connectedStatusText = findViewById(R.id.connectedStatus);
     }
 
     private void createLocalPeerConnection() {
@@ -452,8 +382,8 @@ public class WebRtcActivity extends AppCompatActivity {
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
 
         // Step 8. Create RTCPeerConnection.
-        //         The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
-        //         We also configure the Add Peer Connection Event Listeners here.
+        //  The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
+        //  We also configure the Add Peer Connection Event Listeners here.
         localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
 
             @Override
@@ -513,7 +443,7 @@ public class WebRtcActivity extends AppCompatActivity {
                             final NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID)
                                     .setSmallIcon(R.mipmap.ic_launcher)
                                     .setLargeIcon(BitmapFactory.decodeResource(getApplicationContext().getResources(),
-                                            R.mipmap.ic_launcher))
+                                        R.mipmap.ic_launcher))
                                     .setContentTitle("Message from Peer!")
                                     .setContentText(new String(bytes, Charset.defaultCharset()))
                                     .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -522,13 +452,6 @@ public class WebRtcActivity extends AppCompatActivity {
 
                             // notificationId is a unique int for each notification that you must define
                             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                                // TODO: Consider calling
-                                //    ActivityCompat#requestPermissions
-                                // here to request the missing permissions, and then overriding
-                                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                //                                          int[] grantResults)
-                                // to handle the case where the user grants the permission. See the documentation
-                                // for ActivityCompat#requestPermissions for more details.
                                 return;
                             }
                             notificationManager.notify(mNotificationId++, builder.build());
@@ -540,19 +463,7 @@ public class WebRtcActivity extends AppCompatActivity {
             }
         });
 
-        if (localPeer != null) {
-            printStatsExecutor.scheduleWithFixedDelay(() -> {
-                localPeer.getStats(rtcStatsReport -> {
-                    final Map<String, RTCStats> statsMap = rtcStatsReport.getStatsMap();
-                    for (final Map.Entry<String, RTCStats> entry : statsMap.entrySet()) {
-                        Log.d(TAG, "Stats: " + entry.getKey() + ", " + entry.getValue());
-                    }
-                });
-            }, 0, 10, TimeUnit.SECONDS);
-        }
-
         addDataChannelToLocalPeer();
-        addStreamToLocalPeer();
     }
 
     private Message createIceCandidateMessage(final IceCandidate iceCandidate) {
@@ -569,23 +480,10 @@ public class WebRtcActivity extends AppCompatActivity {
                         + sdpMLineIndex
                         + "}";
 
-        final String senderClientId = (master) ? "" : mClientId;
-
-        return new Message("ICE_CANDIDATE", recipientClientId, senderClientId,
+        final String senderClientId = mClientId;
+        return new Message("ICE_CANDIDATE", null, senderClientId,
                 new String(Base64.encode(messagePayload.getBytes(),
                         Base64.URL_SAFE | Base64.NO_WRAP)));
-    }
-
-    private void addStreamToLocalPeer() {
-        final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
-        if (!stream.addTrack(localAudioTrack)) {
-            Log.e(TAG, "Add audio track failed");
-        }
-
-        if (stream.audioTracks.size() > 0) {
-            localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
-            Log.d(TAG, "Sending audio track");
-        }
     }
 
     private void addDataChannelToLocalPeer() {
@@ -601,12 +499,12 @@ public class WebRtcActivity extends AppCompatActivity {
             public void onStateChange() {
                 Log.d(TAG, "Local Data Channel onStateChange: state: " + localDataChannel.state().toString());
 
-                if (sendDataChannelButton != null) {
+                if (connectedStatusText != null) {
                     runOnUiThread(() -> {
                         if (localDataChannel.state() == DataChannel.State.OPEN) {
-                            sendDataChannelButton.setEnabled(true);
+                            connectedStatusText.setText("Connected");
                         } else {
-                            sendDataChannelButton.setEnabled(false);
+                            connectedStatusText.setText("Disconnected");
                         }
                     });
                 }
@@ -617,18 +515,10 @@ public class WebRtcActivity extends AppCompatActivity {
                 // Send out data, no op on sender side
             }
         });
-
-        sendDataChannelButton.setOnClickListener(view -> {
-            localDataChannel.send(new DataChannel.Buffer(
-                ByteBuffer.wrap(dataChannelText.getText().toString()
-                    .getBytes(Charset.defaultCharset())), false));
-            dataChannelText.setText("");
-        });
     }
 
     // when mobile sdk is viewer
     private void createSdpOffer() {
-
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -648,38 +538,6 @@ public class WebRtcActivity extends AppCompatActivity {
                 } else {
                     notifySignalingConnectionFailed();
                 }
-            }
-        }, sdpMediaConstraints);
-    }
-
-
-    // when local is set to be the master
-    private void createSdpAnswer() {
-        final MediaConstraints sdpMediaConstraints = new MediaConstraints();
-        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        localPeer.createAnswer(new KinesisVideoSdpObserver() {
-            @Override
-            public void onCreateSuccess(final SessionDescription sessionDescription) {
-                Log.d(TAG, "Creating answer: success");
-                super.onCreateSuccess(sessionDescription);
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
-                final Message answer = Message.createAnswerMessage(sessionDescription, master, recipientClientId);
-                client.sendSdpAnswer(answer);
-
-                peerConnectionFoundMap.put(recipientClientId, localPeer);
-                handlePendingIceCandidates(recipientClientId);
-            }
-
-            @Override
-            public void onCreateFailure(final String error) {
-                super.onCreateFailure(error);
-
-                // Device is unable to support the requested media format
-                if (error.contains("ERROR_CONTENT")) {
-                    Log.e(TAG, "No supported codec is present in the offer!");
-                }
-                gotException = true;
             }
         }, sdpMediaConstraints);
     }
@@ -724,19 +582,5 @@ public class WebRtcActivity extends AppCompatActivity {
             mRegion,
             new Date().getTime()
         );
-    }
-
-    private void createNotificationChannel() {
-        // Create the NotificationChannel, but only on API 26+ because
-        // the NotificationChannel class is new and not in the support library
-        final CharSequence name = getString(R.string.data_channel_notification);
-        final String description = getString(R.string.data_channel_notification_description);
-        final int importance = NotificationManager.IMPORTANCE_HIGH;
-        final NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-        channel.setDescription(description);
-        // Register the channel with the system; you can't change the importance
-        // or other notification behaviors after this
-        final NotificationManager notificationManager = getSystemService(NotificationManager.class);
-        notificationManager.createNotificationChannel(channel);
     }
 }

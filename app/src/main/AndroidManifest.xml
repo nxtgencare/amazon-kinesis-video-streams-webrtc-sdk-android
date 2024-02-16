@@ -39,7 +39,11 @@
             android:label="@string/title_activity_simple_nav"
             android:theme="@style/AppTheme">
         </activity>
-        <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.WebRtcActivity"
+        <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.MasterWebRtcActivity"
+            android:label="@string/title_activity_webrtc"
+            android:theme="@style/AppTheme"
+            android:screenOrientation="portrait"/>
+        <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.ViewerWebRtcActivity"
             android:label="@string/title_activity_webrtc"
             android:theme="@style/AppTheme"
             android:screenOrientation="portrait"/>

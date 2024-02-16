@@ -6,20 +6,12 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.SparseBooleanArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CheckedTextView;
 import android.widget.EditText;
-import android.widget.ListView;
-import android.widget.Spinner;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -27,15 +19,13 @@ import androidx.fragment.app.Fragment;
 
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
-import com.amazonaws.kinesisvideo.demoapp.activity.SimpleNavActivity;
-import com.amazonaws.kinesisvideo.demoapp.activity.WebRtcActivity;
+import com.amazonaws.kinesisvideo.demoapp.activity.MasterWebRtcActivity;
+import com.amazonaws.kinesisvideo.demoapp.activity.ViewerWebRtcActivity;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelRequest;
 import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelResult;
-import com.amazonaws.services.kinesisvideo.model.DescribeMediaStorageConfigurationRequest;
-import com.amazonaws.services.kinesisvideo.model.DescribeMediaStorageConfigurationResult;
 import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelRequest;
 import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelResult;
 import com.amazonaws.services.kinesisvideo.model.GetSignalingChannelEndpointRequest;
@@ -50,15 +40,12 @@ import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = StreamWebRtcConfigurationFragment.class.getSimpleName();
 
     private static final String KEY_CHANNEL_NAME = "channelName";
-    public static final String KEY_CLIENT_ID = "clientId";
-    public static final String KEY_REGION = "region";
     public static final String KEY_CHANNEL_ARN = "channelArn";
     public static final String KEY_STREAM_ARN = "streamArn";
     public static final String KEY_WSS_ENDPOINT = "wssEndpoint";
@@ -70,8 +57,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     public static final String KEY_ICE_SERVER_URI = "iceServerUri";
 
     private EditText mChannelName;
-    private EditText mClientId;
-    private EditText mRegion;
     private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
     private final List<IceServer> mIceServerList = new ArrayList<>();
     private String mChannelArn = null;
@@ -104,16 +89,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         mStartViewerButton.setOnClickListener(startViewerActivityWhenClicked());
 
         mChannelName = view.findViewById(R.id.channel_name);
-        mClientId = view.findViewById(R.id.client_id);
-        mRegion = view.findViewById(R.id.region);
-        setRegionFromCognito();
-    }
-
-    private void setRegionFromCognito() {
-        String region = KinesisVideoWebRtcDemoApp.getRegion();
-        if (region != null) {
-            mRegion.setText(region);
-        }
     }
 
     private View.OnClickListener startMasterActivityWhenClicked() {
@@ -121,7 +96,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startMasterActivity() {
-        if (!updateSignalingChannelInfo(mRegion.getText().toString(),
+        if (!updateSignalingChannelInfo("ca-central-1",
                 mChannelName.getText().toString(),
                 ChannelRole.MASTER)) {
             return;
@@ -129,7 +104,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
         if (mChannelArn != null) {
             Bundle extras = setExtras(true);
-            Intent intent = new Intent(getActivity(), WebRtcActivity.class);
+            Intent intent = new Intent(getActivity(), MasterWebRtcActivity.class);
             intent.putExtras(extras);
             startActivity(intent);
         }
@@ -140,7 +115,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     }
 
     private void startViewerActivity() {
-        if (!updateSignalingChannelInfo(mRegion.getText().toString(),
+        if (!updateSignalingChannelInfo("ca-central-1",
                 mChannelName.getText().toString(),
                 ChannelRole.VIEWER)) {
             return;
@@ -148,7 +123,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
         if (mChannelArn != null) {
             Bundle extras = setExtras(false);
-            Intent intent = new Intent(getActivity(), WebRtcActivity.class);
+            Intent intent = new Intent(getActivity(), ViewerWebRtcActivity.class);
             intent.putExtras(extras);
             startActivity(intent);
         }
@@ -157,13 +132,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private Bundle setExtras(boolean isMaster) {
         final Bundle extras = new Bundle();
         final String channelName = mChannelName.getText().toString();
-        final String clientId = mClientId.getText().toString();
-        final String region = mRegion.getText().toString();
 
         extras.putString(KEY_CHANNEL_NAME, channelName);
-        extras.putString(KEY_CLIENT_ID, clientId);
-        extras.putString(KEY_REGION, region);
-        extras.putString(KEY_REGION, region);
         extras.putString(KEY_CHANNEL_ARN, mChannelArn);
         extras.putString(KEY_STREAM_ARN, mStreamArn);
         extras.putBoolean(KEY_IS_MASTER, isMaster);

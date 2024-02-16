@@ -60,11 +60,10 @@ public class Message {
 
     /**
      * @param sessionDescription SDP description to be converted & sent to signaling service
-     * @param master             true if local is set to be the master
      * @param recipientClientId  - has to be set to null if this is set as viewer
      * @return SDP Answer message to be sent to signaling service
      */
-    public static Message createAnswerMessage(final SessionDescription sessionDescription, final boolean master, final String recipientClientId) {
+    public static Message createAnswerMessage(final SessionDescription sessionDescription, final String recipientClientId) {
 
         final String description = sessionDescription.description;
 
