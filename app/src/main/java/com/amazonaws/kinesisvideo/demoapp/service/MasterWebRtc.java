@@ -1,26 +1,23 @@
-package com.amazonaws.kinesisvideo.demoapp.activity;
+package com.amazonaws.kinesisvideo.demoapp.service;
 
 import android.content.Context;
 import android.media.AudioManager;
-import android.util.Base64;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
-import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.SessionDescription;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.function.Consumer;
 
 public class MasterWebRtc extends WebRtc {
@@ -28,21 +25,12 @@ public class MasterWebRtc extends WebRtc {
     private static final String AudioTrackID = "KvsAudioTrack";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
 
-    private AudioTrack localAudioTrack;
+    private final AudioTrack localAudioTrack;
 
     private String recipientClientId;
 
-    public MasterWebRtc(
-        Context context,
-        String mChannelArn,
-        String mWssEndpoint,
-        ArrayList<String> mUserNames,
-        ArrayList<String> mPasswords,
-        ArrayList<List<String>> mUrisList,
-        String mRegion,
-        AudioManager audioManager
-    ) {
-        super(context, mChannelArn, mWssEndpoint, mUserNames, mPasswords, mUrisList, mRegion, audioManager);
+    public MasterWebRtc(Context context, String mRegion, String channelName, AudioManager audioManager) throws Exception {
+        super(context, mRegion, channelName, ChannelRole.MASTER, audioManager);
 
         AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
         localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
@@ -75,26 +63,6 @@ public class MasterWebRtc extends WebRtc {
     protected void createLocalPeerConnection(Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
         super.createLocalPeerConnection(iceConnectionStateChangedHandler);
         addStreamToLocalPeer();
-    }
-
-    private Message createIceCandidateMessage(final IceCandidate iceCandidate) {
-        final String sdpMid = iceCandidate.sdpMid;
-        final int sdpMLineIndex = iceCandidate.sdpMLineIndex;
-        final String sdp = iceCandidate.sdp;
-
-        final String messagePayload =
-            "{\"candidate\":\""
-                    + sdp
-                    + "\",\"sdpMid\":\""
-                    + sdpMid
-                    + "\",\"sdpMLineIndex\":"
-                    + sdpMLineIndex
-                    + "}";
-
-        final String senderClientId = "";
-        return new Message("ICE_CANDIDATE", recipientClientId, senderClientId,
-            new String(Base64.encode(messagePayload.getBytes(),
-                    Base64.URL_SAFE | Base64.NO_WRAP)));
     }
 
     @Override

@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.activity;
+package com.amazonaws.kinesisvideo.demoapp.service;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -8,6 +8,7 @@ import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
@@ -23,16 +24,12 @@ public class ViewerWebRtc extends WebRtc {
 
     public ViewerWebRtc(
         Context context,
-        String mClientId,
-        String mChannelArn,
-        String mWssEndpoint,
-        ArrayList<String> mUserNames,
-        ArrayList<String> mPasswords,
-        ArrayList<List<String>> mUrisList,
         String mRegion,
+        String mChannelName,
+        String mClientId,
         AudioManager audioManager
-    ) {
-        super(context, mChannelArn, mWssEndpoint, mUserNames, mPasswords, mUrisList, mRegion, audioManager);
+    ) throws Exception {
+        super(context, mRegion, mChannelName, ChannelRole.VIEWER, audioManager);
         this.mClientId = mClientId;
     }
 

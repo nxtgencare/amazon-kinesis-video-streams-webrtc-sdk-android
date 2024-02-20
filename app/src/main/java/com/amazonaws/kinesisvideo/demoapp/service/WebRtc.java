@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.activity;
+package com.amazonaws.kinesisvideo.demoapp.service;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -7,6 +7,7 @@ import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
+import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.signaling.SignalingListener;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
@@ -14,6 +15,22 @@ import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClien
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.regions.Region;
+import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
+import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelRequest;
+import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelResult;
+import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelRequest;
+import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelResult;
+import com.amazonaws.services.kinesisvideo.model.GetSignalingChannelEndpointRequest;
+import com.amazonaws.services.kinesisvideo.model.GetSignalingChannelEndpointResult;
+import com.amazonaws.services.kinesisvideo.model.ResourceEndpointListItem;
+import com.amazonaws.services.kinesisvideo.model.ResourceNotFoundException;
+import com.amazonaws.services.kinesisvideo.model.SingleMasterChannelEndpointConfiguration;
+import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClient;
+import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
+import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
+import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
 import org.webrtc.AudioTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
@@ -41,6 +58,11 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 public abstract class WebRtc {
+    private static final String TAG = "WebRtc";
+
+    private final List<ResourceEndpointListItem> mEndpointList = new ArrayList<>();
+    private final List<IceServer> mIceServerList = new ArrayList<>();
+
     protected static volatile SignalingServiceWebSocketClient client;
     protected final List<PeerConnection.IceServer> peerIceServers = new ArrayList<>();
     /**
@@ -67,21 +89,24 @@ public abstract class WebRtc {
 
     public WebRtc(
         Context context,
-        String mChannelArn,
-        String mWssEndpoint,
-        ArrayList<String> mUserNames,
-        ArrayList<String> mPasswords,
-        ArrayList<List<String>> mUrisList,
         String mRegion,
+        String channelName,
+        ChannelRole role,
         AudioManager audioManager
-    ) {
-        this.mChannelArn = mChannelArn;
-        this.mWssEndpoint = mWssEndpoint;
+    ) throws Exception {
         this.mRegion = "ca-central-1";
         this.audioManager = audioManager;
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
         this.rootEglBase = EglBase.create();
+
+        configureChannel(mRegion, channelName, role);
+
+        for (ResourceEndpointListItem endpoint : mEndpointList) {
+            if (endpoint.getProtocol().equals("WSS")) {
+                this.mWssEndpoint = endpoint.getResourceEndpoint();
+            }
+        }
 
         final PeerConnection.IceServer stun = PeerConnection.IceServer
             .builder(String.format("stun:stun.kinesisvideo.%s.amazonaws.com:443", mRegion))
@@ -89,17 +114,15 @@ public abstract class WebRtc {
 
         peerIceServers.add(stun);
 
-        if (mUrisList != null) {
-            for (int i = 0; i < mUrisList.size(); i++) {
-                final String turnServer = mUrisList.get(i).toString();
-                final PeerConnection.IceServer iceServer = PeerConnection.IceServer.builder(turnServer.replace("[", "").replace("]", ""))
-                    .setUsername(mUserNames.get(i))
-                    .setPassword(mPasswords.get(i))
-                    .createIceServer();
+        for (IceServer iceServer : mIceServerList) {
+            final String turnServer = iceServer.getUris().toString();
+            final PeerConnection.IceServer peerIceServer = PeerConnection.IceServer.builder(turnServer.replace("[", "").replace("]", ""))
+                .setUsername(iceServer.getUsername())
+                .setPassword(iceServer.getPassword())
+                .createIceServer();
 
-                Log.d(getTag(), "IceServer details (TURN) = " + iceServer.toString());
-                peerIceServers.add(iceServer);
-            }
+            Log.d(getTag(), "IceServer details (TURN) = " + peerIceServer.toString());
+            peerIceServers.add(peerIceServer);
         }
 
         PeerConnectionFactory.initialize(PeerConnectionFactory
@@ -127,6 +150,108 @@ public abstract class WebRtc {
 
     public boolean isValidClient() {
         return client != null && client.isOpen();
+    }
+
+    public void configureChannel(String region, String channelName, ChannelRole role) throws Exception {
+        final AWSKinesisVideoClient awsKinesisVideoClient;
+        try {
+            awsKinesisVideoClient = getAwsKinesisVideoClient(region);
+        } catch (Exception e) {
+            // TODO: Better exceptions
+            throw new Exception("Create client failed with " + e.getMessage());
+        }
+
+        // Step 2. Use the Kinesis Video Client to call DescribeSignalingChannel API.
+        //         If that fails with ResourceNotFoundException, the channel does not exist.
+        //         If we are connecting as Master, if it doesn't exist, we attempt to create
+        //         it by calling CreateSignalingChannel API.
+        try {
+            final DescribeSignalingChannelResult describeSignalingChannelResult = awsKinesisVideoClient.describeSignalingChannel(
+                    new DescribeSignalingChannelRequest()
+                            .withChannelName(channelName));
+
+            Log.i(TAG, "Channel ARN is " + describeSignalingChannelResult.getChannelInfo().getChannelARN());
+            mChannelArn = describeSignalingChannelResult.getChannelInfo().getChannelARN();
+        } catch (final ResourceNotFoundException e) {
+            if (role.equals(ChannelRole.MASTER)) {
+                try {
+                    CreateSignalingChannelResult createSignalingChannelResult = awsKinesisVideoClient.createSignalingChannel(
+                            new CreateSignalingChannelRequest()
+                                    .withChannelName(channelName));
+
+                    mChannelArn = createSignalingChannelResult.getChannelARN();
+                } catch (Exception ex) {
+                    throw new Exception("Create Signaling Channel failed with Exception " + ex.getMessage());
+                }
+            } else {
+                throw new Exception("Signaling Channel " + channelName + " doesn't exist!");
+            }
+        } catch (Exception ex) {
+            throw new Exception("Describe Signaling Channel failed with Exception " + ex);
+        }
+
+        final String[] protocols = new String[]{"WSS", "HTTPS"};
+
+        // Step 4. Use the Kinesis Video Client to call GetSignalingChannelEndpoint.
+        //         Each signaling channel is assigned an HTTPS and WSS endpoint to connect
+        //         to for data-plane operations, which we fetch using the GetSignalingChannelEndpoint API,
+        //         and a WEBRTC endpoint to for storage data-plane operations.
+        //         Attempting to obtain the WEBRTC endpoint if the signaling channel is not configured
+        //         will result in an InvalidArgumentException.
+        try {
+            final GetSignalingChannelEndpointResult getSignalingChannelEndpointResult = awsKinesisVideoClient.getSignalingChannelEndpoint(
+                new GetSignalingChannelEndpointRequest()
+                    .withChannelARN(mChannelArn)
+                    .withSingleMasterChannelEndpointConfiguration(
+                        new SingleMasterChannelEndpointConfiguration()
+                            .withProtocols(protocols)
+                            .withRole(role)));
+
+            Log.i(TAG, "Endpoints " + getSignalingChannelEndpointResult.toString());
+            mEndpointList.addAll(getSignalingChannelEndpointResult.getResourceEndpointList());
+        } catch (Exception e) {
+            throw new Exception("Get Signaling Endpoint failed with Exception " + e.getMessage());
+        }
+
+        String dataEndpoint = null;
+        for (ResourceEndpointListItem endpoint : mEndpointList) {
+            if (endpoint.getProtocol().equals("HTTPS")) {
+                dataEndpoint = endpoint.getResourceEndpoint();
+            }
+        }
+
+        // Step 5. Construct the Kinesis Video Signaling Client. The HTTPS endpoint from the
+        //         GetSignalingChannelEndpoint response above is used with this client. This
+        //         client is just used for getting ICE servers, not for actual signaling.
+        // Step 6. Call GetIceServerConfig in order to obtain TURN ICE server info.
+        //         Note: the STUN endpoint will be `stun:stun.kinesisvideo.${region}.amazonaws.com:443`
+        try {
+            final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = getAwsKinesisVideoSignalingClient(region, dataEndpoint);
+            GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
+                    new GetIceServerConfigRequest().withChannelARN(mChannelArn).withClientId(role.name()));
+            mIceServerList.addAll(getIceServerConfigResult.getIceServerList());
+        } catch (Exception e) {
+            throw new Exception("Get Ice Server Config failed with Exception " + e.getMessage());
+        }
+    }
+
+    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
+        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(
+                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+        awsKinesisVideoClient.setRegion(Region.getRegion(region));
+        awsKinesisVideoClient.setSignerRegionOverride(region);
+        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
+        return awsKinesisVideoClient;
+    }
+
+    private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
+        final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(
+                KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials());
+        client.setRegion(Region.getRegion(region));
+        client.setSignerRegionOverride(region);
+        client.setServiceNameIntern("kinesisvideo");
+        client.setEndpoint(endpoint);
+        return client;
     }
 
     public void initWsConnection(
