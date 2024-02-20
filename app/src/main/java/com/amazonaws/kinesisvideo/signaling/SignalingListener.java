@@ -15,18 +15,25 @@ public abstract class SignalingListener implements Signaling {
 
     private final Gson gson = new Gson();
 
-    private final MessageHandler messageHandler = (MessageHandler.Whole<String>) message -> {
-        if (message.isEmpty()) {
+    private final MessageHandler messageHandler = (MessageHandler.Whole<Object>) objMessage -> {
+        String strMessage = "";
+        if (objMessage instanceof String) {
+            strMessage = (String) objMessage;
+        } else if (objMessage instanceof Boolean) {
+            strMessage = ((Boolean) objMessage).toString();
+        }
+
+        if (strMessage.isEmpty()) {
             return;
         }
 
-        Log.d(TAG, "Received message: " + message);
+        Log.d(TAG, "Received objMessage: " + objMessage);
 
-        if (!message.contains("messagePayload")) {
+        if (!strMessage.contains("messagePayload")) {
             return;
         }
 
-        final Event evt = gson.fromJson(message, Event.class);
+        final Event evt = gson.fromJson(strMessage, Event.class);
 
         if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
             return;
