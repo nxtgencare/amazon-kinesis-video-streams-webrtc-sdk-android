@@ -29,8 +29,15 @@ public class MasterWebRtc extends WebRtc {
 
     private String recipientClientId;
 
-    public MasterWebRtc(Context context, String mRegion, String channelName, AudioManager audioManager) throws Exception {
-        super(context, mRegion, channelName, ChannelRole.MASTER, audioManager);
+    public MasterWebRtc(
+        Context context,
+        String mRegion,
+        String channelName,
+        AudioManager audioManager,
+        Consumer<Exception> signallingListeningExceptionHandler,
+        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
+    ) throws Exception {
+        super(context, mRegion, channelName, ChannelRole.MASTER, audioManager, signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
 
         AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
         localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
@@ -38,7 +45,7 @@ public class MasterWebRtc extends WebRtc {
     }
 
     @Override
-    protected void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
+    public void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
         Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
 
         final String sdp = Event.parseOfferEvent(offerEvent);

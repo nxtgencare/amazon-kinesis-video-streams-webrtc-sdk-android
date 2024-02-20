@@ -72,7 +72,7 @@ class WebSocketClient {
             @Override
             public void onOpen(final Session session, final EndpointConfig endpointConfig) {
                 Log.d(TAG, "Registering message handler");
-                session.addMessageHandler(signalingListener.getMessageHandler());
+                session.addMessageHandler(signalingListener);
             }
 
             @Override

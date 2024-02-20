@@ -27,9 +27,11 @@ public class ViewerWebRtc extends WebRtc {
         String mRegion,
         String mChannelName,
         String mClientId,
-        AudioManager audioManager
+        AudioManager audioManager,
+        Consumer<Exception> signallingListeningExceptionHandler,
+        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
     ) throws Exception {
-        super(context, mRegion, mChannelName, ChannelRole.VIEWER, audioManager);
+        super(context, mRegion, mChannelName, ChannelRole.VIEWER, audioManager, signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
         this.mClientId = mClientId;
     }
 
@@ -60,7 +62,7 @@ public class ViewerWebRtc extends WebRtc {
     }
 
     @Override
-    protected void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
+    public void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
         Log.d(getTag(), "Viewer should not be receiving SDP Offer");
     }
 

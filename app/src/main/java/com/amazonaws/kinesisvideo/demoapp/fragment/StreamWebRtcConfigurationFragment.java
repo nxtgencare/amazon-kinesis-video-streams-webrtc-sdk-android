@@ -87,7 +87,9 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                                 getActivity(),
                                 "ca-central-1",
                                 mMasterChannelName.getText().toString(),
-                                audioManager
+                                audioManager,
+                                parent::notifySignalingConnectionFailed,
+                                getIceConnectionStateChangedCallback(parent::setMasterRunning)
                             );
                             mMasterButton.setEnabled(true);
                             webRtcButtonWhenClicked(masterWebRtc, masterRunning, parent::setMasterRunning);
@@ -111,11 +113,13 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                     } else {
                         try {
                             viewerWebRtc = new ViewerWebRtc(
-                                    getActivity(),
-                                    "ca-central-1",
-                                    mViewerChannelName.getText().toString(),
-                                    mViewerChannelName.getText().toString(),
-                                    audioManager
+                                getActivity(),
+                                "ca-central-1",
+                                mViewerChannelName.getText().toString(),
+                                mViewerChannelName.getText().toString(),
+                                audioManager,
+                                parent::notifySignalingConnectionFailed,
+                                getIceConnectionStateChangedCallback(parent::setViewerRunning)
                             );
                             mViewerButton.setEnabled(true);
                             webRtcButtonWhenClicked(viewerWebRtc, viewerRunning, parent::setViewerRunning);
@@ -150,7 +154,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private void webRtcButtonWhenClicked(WebRtc webRtc, Boolean isRunning, Consumer<Boolean> setRunningCallback) {
         if (!isRunning) {
-            if (startWebRtc(webRtc, setRunningCallback)) {
+            if (startWebRtc(webRtc)) {
                 setRunningCallback.accept(true);
             } else {
                 setRunningCallback.accept(false);
@@ -158,14 +162,10 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         }
     }
 
-    private boolean startWebRtc(WebRtc webRtc, Consumer<Boolean> setRunningCallback) {
+    private boolean startWebRtc(WebRtc webRtc) {
         // Start websocket after adding local audio/video tracks
         try {
-            webRtc.initWsConnection(
-                mCreds.get(),
-                this::notifySignalingConnectionFailed,
-                getIceConnectionStateChangedCallback(setRunningCallback)
-            );
+            webRtc.initWsConnection(mCreds.get());
             runOnUiThread(() -> Toast.makeText(getContext(), "Signaling Connected", Toast.LENGTH_LONG).show());
             return true;
         } catch (Exception e) {

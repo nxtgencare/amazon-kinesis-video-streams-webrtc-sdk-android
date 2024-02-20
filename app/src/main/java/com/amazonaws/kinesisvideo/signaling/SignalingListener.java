@@ -4,36 +4,38 @@ package com.amazonaws.kinesisvideo.signaling;
 import android.util.Base64;
 import android.util.Log;
 
+import com.amazonaws.kinesisvideo.demoapp.service.WebRtc;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
+import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.google.gson.Gson;
+
+import org.webrtc.IceCandidate;
+import org.webrtc.SessionDescription;
 
 import javax.websocket.MessageHandler;
 
-public abstract class SignalingListener implements Signaling {
-
-    private final static String TAG = "CustomMessageHandler";
-
+public class SignalingListener implements MessageHandler.Whole<String> {
     private final Gson gson = new Gson();
+    private WebRtc webRtc;
 
-    private final MessageHandler messageHandler = (MessageHandler.Whole<Object>) objMessage -> {
-        String strMessage = "";
-        if (objMessage instanceof String) {
-            strMessage = (String) objMessage;
-        } else if (objMessage instanceof Boolean) {
-            strMessage = ((Boolean) objMessage).toString();
-        }
+    public SignalingListener(WebRtc webRtc) {
+        this.webRtc = webRtc;
+    }
 
-        if (strMessage.isEmpty()) {
+
+    @Override
+    public void onMessage(String message) {
+        if (message.isEmpty()) {
             return;
         }
 
-        Log.d(TAG, "Received objMessage: " + objMessage);
+        Log.d(webRtc.getTag(), "Received objMessage: " + message);
 
-        if (!strMessage.contains("messagePayload")) {
+        if (!message.contains("messagePayload")) {
             return;
         }
 
-        final Event evt = gson.fromJson(strMessage, Event.class);
+        final Event evt = gson.fromJson(message, Event.class);
 
         if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
             return;
@@ -41,28 +43,44 @@ public abstract class SignalingListener implements Signaling {
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
-                Log.d(TAG, "Offer received: SenderClientId=" + evt.getSenderClientId());
-                Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), 0)));
-
-                onSdpOffer(evt);
+                Log.d(webRtc.getTag(), "Offer received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), new String(Base64.decode(evt.getMessagePayload(), 0)));
+                webRtc.handleSdpOffer(evt, webRtc.signallingListeningExceptionHandler);
                 break;
             case "SDP_ANSWER":
-                Log.d(TAG, "Answer received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), "Answer received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), "SDP answer received from signaling");
+                final String sdp = Event.parseSdpEvent(evt);
+                final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
-                onSdpAnswer(evt);
+                webRtc.localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
+                    @Override
+                    public void onCreateFailure(final String error) {
+                        super.onCreateFailure(error);
+                    }
+                }, sdpAnswer);
+                Log.d(webRtc.getTag(), "Answer Client ID: " + evt.getSenderClientId());
+                webRtc.peerConnectionFoundMap.put(evt.getSenderClientId(), webRtc.localPeer);
+                // Check if ICE candidates are available in the queue and add the candidate
+                webRtc.handlePendingIceCandidates(evt.getSenderClientId());
                 break;
             case "ICE_CANDIDATE":
-                Log.d(TAG, "Ice Candidate received: SenderClientId=" + evt.getSenderClientId());
-                Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), 0)));
-
-                onIceCandidate(evt);
+                Log.d(webRtc.getTag(), "Ice Candidate received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), new String(Base64.decode(evt.getMessagePayload(), 0)));
+                Log.d(webRtc.getTag(), "Received ICE candidate from remote");
+                final IceCandidate iceCandidate = Event.parseIceCandidate(evt);
+                if (iceCandidate != null) {
+                    webRtc.checkAndAddIceCandidate(evt, iceCandidate);
+                } else {
+                    Log.e(webRtc.getTag(), "Invalid ICE candidate: " + evt);
+                }
                 break;
             default:
                 break;
         }
-    };
+    }
 
-    public MessageHandler getMessageHandler() {
-        return messageHandler;
+    public void onException(Exception e) {
+        webRtc.signallingListeningExceptionHandler.accept(e);
     }
 }

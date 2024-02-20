@@ -70,7 +70,7 @@ public abstract class WebRtc {
      * offer/answer for a peer connection has been received and sent, the PeerConnection is added
      * to this map.
      */
-    protected final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<>();
+    public final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<>();
     /**
      * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
      * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
@@ -85,20 +85,26 @@ public abstract class WebRtc {
     protected int originalAudioMode;
     protected boolean originalSpeakerphoneOn;
     protected EglBase rootEglBase;
-    protected PeerConnection localPeer;
+    public PeerConnection localPeer;
+    public final Consumer<Exception> signallingListeningExceptionHandler;
+    private final Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler;
 
     public WebRtc(
         Context context,
         String mRegion,
         String channelName,
         ChannelRole role,
-        AudioManager audioManager
+        AudioManager audioManager,
+        Consumer<Exception> signallingListeningExceptionHandler,
+        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
     ) throws Exception {
         this.mRegion = "ca-central-1";
         this.audioManager = audioManager;
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
         this.rootEglBase = EglBase.create();
+        this.signallingListeningExceptionHandler = signallingListeningExceptionHandler;
+        this.iceConnectionStateChangedHandler = iceConnectionStateChangedHandler;
 
         configureChannel(mRegion, channelName, role);
 
@@ -254,11 +260,7 @@ public abstract class WebRtc {
         return client;
     }
 
-    public void initWsConnection(
-        AWSCredentials mCreds,
-        Consumer<Exception> signallingListeningExceptionHandler,
-        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
-    ) throws Exception {
+    public void initWsConnection(AWSCredentials mCreds) throws Exception {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
         final String endpoint = buildEndPointUri();
         final URI signedUri = getSignedUri(mCreds, endpoint);
@@ -268,52 +270,7 @@ public abstract class WebRtc {
 
         // Step 10. Create Signaling Client Event Listeners.
         //          When we receive messages, we need to take the appropriate action.
-        final SignalingListener signalingListener = new SignalingListener() {
-            @Override
-            public void onSdpOffer(final Event offerEvent) {
-                handleSdpOffer(offerEvent, signallingListeningExceptionHandler);
-            }
-
-            @Override
-            public void onSdpAnswer(final Event answerEvent) {
-                Log.d(getTag(), "SDP answer received from signaling");
-                final String sdp = Event.parseSdpEvent(answerEvent);
-                final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
-
-                localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onCreateFailure(final String error) {
-                        super.onCreateFailure(error);
-                    }
-                }, sdpAnswer);
-                Log.d(getTag(), "Answer Client ID: " + answerEvent.getSenderClientId());
-                peerConnectionFoundMap.put(answerEvent.getSenderClientId(), localPeer);
-                // Check if ICE candidates are available in the queue and add the candidate
-                handlePendingIceCandidates(answerEvent.getSenderClientId());
-            }
-
-            @Override
-            public void onIceCandidate(final Event message) {
-                Log.d(getTag(), "Received ICE candidate from remote");
-                final IceCandidate iceCandidate = Event.parseIceCandidate(message);
-                if (iceCandidate != null) {
-                    checkAndAddIceCandidate(message, iceCandidate);
-                } else {
-                    Log.e(getTag(), "Invalid ICE candidate: " + message);
-                }
-            }
-
-            @Override
-            public void onError(final Event errorMessage) {
-                Log.e(getTag(), "Received error message: " + errorMessage);
-            }
-
-            @Override
-            public void onException(final Exception e) {
-                Log.e(getTag(), "Signaling client returned exception: " + e.getMessage());
-                signallingListeningExceptionHandler.accept(e);
-            }
-        };
+        final SignalingListener signalingListener = new SignalingListener(this);
 
         // Step 11. Create SignalingServiceWebSocketClient.
         //          This is the actual client that is used to send messages over the signaling channel.
@@ -337,7 +294,7 @@ public abstract class WebRtc {
         }
     }
 
-    protected abstract void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler);
+    public abstract void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler);
 
     protected abstract void onValidClient(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler);
 
@@ -351,7 +308,7 @@ public abstract class WebRtc {
      * @param clientId The sender client id of the peer whose peer connection was just established.
      * @see #pendingIceCandidatesMap
      */
-    protected void handlePendingIceCandidates(final String clientId) {
+    public void handlePendingIceCandidates(final String clientId) {
         // Add any pending ICE candidates from the queue for the client ID
         Log.d(getTag(), "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
         final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
@@ -366,7 +323,7 @@ public abstract class WebRtc {
         pendingIceCandidatesMap.remove(clientId);
     }
 
-    private void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
+    public void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
         // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
         // Once the peer connection is found, add them directly instead of adding it to the queue.
         if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
