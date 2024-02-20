@@ -76,7 +76,11 @@ public class SimpleNavActivity extends AppCompatActivity
 
     public void startFragment(Fragment fragment) {
         FragmentManager fragmentManager = getSupportFragmentManager();
-        fragmentManager.beginTransaction().replace(R.id.content_simple, fragment, StreamWebRtcConfigurationFragment.class.getName()).commit();
+        fragmentManager.beginTransaction().replace(
+            R.id.content_simple,
+            fragment,
+            StreamWebRtcConfigurationFragment.class.getName()
+        ).commit();
     }
 
     public void startConfigFragment() {

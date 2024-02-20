@@ -25,9 +25,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onSignalingChange(final PeerConnection.SignalingState signalingState) {
-
         Log.d(TAG, "onSignalingChange(): signalingState = [" + signalingState + "]");
-
     }
 
     /**
@@ -35,9 +33,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
-
         Log.d(TAG, "onIceConnectionChange(): iceConnectionState = [" + iceConnectionState + "]");
-
     }
 
     /**
@@ -45,9 +41,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceConnectionReceivingChange(final boolean connectionChange) {
-
         Log.d(TAG, "onIceConnectionReceivingChange(): connectionChange = [" + connectionChange + "]");
-
     }
 
     /**
@@ -55,9 +49,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceGatheringChange(final PeerConnection.IceGatheringState iceGatheringState) {
-
         Log.d(TAG, "onIceGatheringChange(): iceGatheringState = [" + iceGatheringState + "]");
-
     }
 
     /**
@@ -65,9 +57,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceCandidate(final IceCandidate iceCandidate) {
-
         Log.d(TAG, "onIceCandidate(): iceCandidate = [" + iceCandidate + "]");
-
     }
 
     /**
@@ -75,9 +65,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceCandidatesRemoved(final IceCandidate[] iceCandidates) {
-
         Log.d(TAG, "onIceCandidatesRemoved(): iceCandidates Length = [" + iceCandidates.length + "]");
-
     }
 
     /**
@@ -85,16 +73,14 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onSelectedCandidatePairChanged(final CandidatePairChangeEvent event) {
-
         final String eventString = "{" +
-                String.join(", ",
-                        "reason: " + event.reason,
-                        "remote: " + event.remote,
-                        "local: " + event.local,
-                        "lastReceivedMs: " + event.lastDataReceivedMs) +
-                "}";
+            String.join(", ",
+                "reason: " + event.reason,
+                "remote: " + event.remote,
+                "local: " + event.local,
+                "lastReceivedMs: " + event.lastDataReceivedMs) +
+            "}";
         Log.d(TAG, "onSelectedCandidatePairChanged(): event = " + eventString);
-
     }
 
     /**
@@ -102,9 +88,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onAddStream(final MediaStream mediaStream) {
-
         Log.d(TAG, "onAddStream(): mediaStream = [" + mediaStream + "]");
-
     }
 
     /**
@@ -112,9 +96,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onRemoveStream(final MediaStream mediaStream) {
-
         Log.d(TAG, "onRemoveStream(): mediaStream = [" + mediaStream + "]");
-
     }
 
     /**
@@ -122,9 +104,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onDataChannel(final DataChannel dataChannel) {
-
         Log.d(TAG, "onDataChannel(): dataChannel = [" + dataChannel + "]");
-
     }
 
     /**
@@ -132,9 +112,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onRenegotiationNeeded() {
-
         Log.d(TAG, "onRenegotiationNeeded():");
-
     }
 
     /**
@@ -142,9 +120,9 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onAddTrack(final RtpReceiver rtpReceiver, final MediaStream[] mediaStreams) {
-
-        Log.d(TAG, "onAddTrack(): rtpReceiver = [" + rtpReceiver + "], " +
-                "mediaStreams Length = [" + mediaStreams.length + "]");
-
+        Log.d(
+            TAG,
+            "onAddTrack(): rtpReceiver = [" + rtpReceiver + "], " + "mediaStreams Length = [" + mediaStreams.length + "]"
+        );
     }
 }

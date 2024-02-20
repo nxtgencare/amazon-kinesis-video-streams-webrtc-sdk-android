@@ -72,7 +72,10 @@ public class ViewerWebRtc extends WebRtc {
 
     @Override
     protected String buildEndPointUri() {
-        return mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn + "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
+        return mWssEndpoint + "?" +
+            Constants.CHANNEL_ARN_QUERY_PARAM +
+            "=" + mChannelArn +
+            "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
     }
 
     @Override

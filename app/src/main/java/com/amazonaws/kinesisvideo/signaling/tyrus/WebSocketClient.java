@@ -40,35 +40,35 @@ class WebSocketClient {
 
     private final ExecutorService executorService;
 
-    WebSocketClient(final String uri, final ClientManager clientManager,
-                    final SignalingListener signalingListener,
-                    final ExecutorService executorService) {
+    WebSocketClient(
+        final String uri,
+        final ClientManager clientManager,
+        final SignalingListener signalingListener,
+        final ExecutorService executorService
+    ) {
 
         this.executorService = executorService;
         final ClientEndpointConfig cec = ClientEndpointConfig.Builder.create()
-                .configurator(new ClientEndpointConfig.Configurator() {
-                    @Override
-                    public void beforeRequest(final Map<String, List<String>> headers) {
-                        super.beforeRequest(headers);
+            .configurator(new ClientEndpointConfig.Configurator() {
+                @Override
+                public void beforeRequest(final Map<String, List<String>> headers) {
+                    super.beforeRequest(headers);
+                    final String userAgent = Constants.APP_NAME + "/" + Constants.VERSION + " " + System.getProperty("http.agent");
+                    headers.put("User-Agent", Collections.singletonList(userAgent.trim()));
+                }
 
-                        final String userAgent = Constants.APP_NAME + "/" + Constants.VERSION + " " + System.getProperty("http.agent");
+                @Override
+                public void afterResponse(final HandshakeResponse hr) {
+                    super.afterResponse(hr);
 
-                        headers.put("User-Agent", Collections.singletonList(userAgent.trim()));
-                    }
-
-                    @Override
-                    public void afterResponse(final HandshakeResponse hr) {
-                        super.afterResponse(hr);
-
-                        hr.getHeaders().forEach((key, values) -> Log.d(TAG, "header - " + key + ": " + values));
-                    }
-                })
-                .build();
+                    hr.getHeaders().forEach((key, values) -> Log.d(TAG, "header - " + key + ": " + values));
+                }
+            })
+            .build();
 
         clientManager.getProperties().put(ClientProperties.LOG_HTTP_UPGRADE, true);
 
         final Endpoint endpoint = new Endpoint() {
-
             @Override
             public void onOpen(final Session session, final EndpointConfig endpointConfig) {
                 Log.d(TAG, "Registering message handler");
@@ -87,7 +87,6 @@ class WebSocketClient {
                 super.onError(session, thr);
                 Log.w(TAG, thr);
             }
-
         };
 
         executorService.submit(() -> {

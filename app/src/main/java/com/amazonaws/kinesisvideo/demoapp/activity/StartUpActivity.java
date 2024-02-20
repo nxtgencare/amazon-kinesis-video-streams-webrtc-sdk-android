@@ -24,7 +24,6 @@ public class StartUpActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         final AWSMobileClient auth = AWSMobileClient.getInstance();
-
         initializeMobileClient(auth);
 
         final AppCompatActivity thisActivity = this;
@@ -40,20 +39,24 @@ public class StartUpActivity extends AppCompatActivity {
             @Override
             public void onResult(UserStateDetails result) {
                 Log.d(TAG, "onResult: user state: " + result.getUserState());
+                client.signIn(
+                    BuildConfig.KINESIS_USERNAME,
+                    BuildConfig.KINESIS_PASSWORD,
+                    Collections.emptyMap(),
+                    new Callback<SignInResult>() {
+                        @Override
+                        public void onResult(SignInResult result) {
+                            Log.d(TAG,String.format("Sign In Attempt Info: sign in state: %s",result.getSignInState()));
+                            latch.countDown();
+                        }
 
-                client.signIn(BuildConfig.KINESIS_USERNAME, BuildConfig.KINESIS_PASSWORD, Collections.emptyMap(), new Callback<SignInResult>() {
-                    @Override
-                    public void onResult(SignInResult result) {
-                        Log.d(TAG,String.format("Sign In Attempt Info: sign in state: %s",result.getSignInState()));
-                        latch.countDown();
+                        @Override
+                        public void onError(Exception e) {
+                            Log.e(TAG, "Sign In Attempt error", e);
+                            latch.countDown();
+                        }
                     }
-
-                    @Override
-                    public void onError(Exception e) {
-                        Log.e(TAG, "Sign In Attempt error", e);
-                        latch.countDown();
-                    }
-                });
+                );
             }
 
             @Override

@@ -26,8 +26,11 @@ public class SignalingServiceWebSocketClient {
 
     private final Gson gson = new Gson();
 
-    public SignalingServiceWebSocketClient(final String uri, final SignalingListener signalingListener,
-                                           final ExecutorService executorService) {
+    public SignalingServiceWebSocketClient(
+        final String uri,
+        final SignalingListener signalingListener,
+        final ExecutorService executorService
+    ) {
         Log.d(TAG, "Connecting to URI " + uri + " as master");
         websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
         this.executorService = executorService;
@@ -38,30 +41,22 @@ public class SignalingServiceWebSocketClient {
     }
 
     public void sendSdpOffer(final Message offer) {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                if (offer.getAction().equalsIgnoreCase("SDP_OFFER")) {
-
-                    Log.d(TAG, "Sending Offer");
-
-                    send(offer);
-                }
+        executorService.submit(() -> {
+            if (offer.getAction().equalsIgnoreCase("SDP_OFFER")) {
+                Log.d(TAG, "Sending Offer");
+                send(offer);
             }
         });
     }
 
     public void sendSdpAnswer(final Message answer) {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
+        executorService.submit(() -> {
+            if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
 
-                    Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
-                            Base64.NO_WRAP | Base64.URL_SAFE)));
+                Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
+                        Base64.NO_WRAP | Base64.URL_SAFE)));
 
-                    send(answer);
-                }
+                send(answer);
             }
         });
     }
@@ -77,12 +72,7 @@ public class SignalingServiceWebSocketClient {
     }
 
     public void disconnect() {
-        executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                websocketClient.disconnect();
-            }
-        });
+        executorService.submit(() -> websocketClient.disconnect());
         try {
             executorService.shutdown();
             if (!executorService.awaitTermination(1, TimeUnit.SECONDS)) {

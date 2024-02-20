@@ -50,7 +50,10 @@ public class MasterWebRtc extends WebRtc {
     }
 
     @Override
-    protected void onValidClient(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
+    protected void onValidClient(
+        Consumer<Exception> signallingListeningExceptionHandler,
+        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
+    ) {
         // Do nothing
     }
 

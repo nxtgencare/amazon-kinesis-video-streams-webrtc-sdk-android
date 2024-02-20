@@ -17,20 +17,16 @@ public class KinesisVideoSdpObserver implements SdpObserver {
 
     @Override
     public void onSetSuccess() {
-
         Log.d(TAG, "onSetSuccess(): SDP");
     }
 
     @Override
     public void onCreateFailure(String error) {
-
         Log.e(TAG, "onCreateFailure(): Error=" + error);
     }
 
     @Override
     public void onSetFailure(String error) {
-
         Log.e(TAG, "onSetFailure(): Error=" + error);
-
     }
 }

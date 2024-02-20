@@ -438,13 +438,13 @@ public abstract class WebRtc {
         final String sdp = iceCandidate.sdp;
 
         final String messagePayload =
-                "{\"candidate\":\""
-                        + sdp
-                        + "\",\"sdpMid\":\""
-                        + sdpMid
-                        + "\",\"sdpMLineIndex\":"
-                        + sdpMLineIndex
-                        + "}";
+            "{\"candidate\":\""
+                + sdp
+                + "\",\"sdpMid\":\""
+                + sdpMid
+                + "\",\"sdpMLineIndex\":"
+                + sdpMLineIndex
+                + "}";
 
         final String senderClientId = "";
         return new Message("ICE_CANDIDATE", getRecipientClientId(), senderClientId,

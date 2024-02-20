@@ -54,9 +54,15 @@ public class AwsV4Signer {
      * @return Presigned WebSocket URL you can use to connect to Kinesis Video Signaling.
      * @see <a href="https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis.html">Kinesis Video Streams WebRTC Websocket APIs</a>
      */
-    public static URI sign(final URI uri, final String accessKey, final String secretKey,
-                           final String sessionToken, final URI wssUri, final String region,
-                           final long dateMilli) {
+    public static URI sign(
+        final URI uri,
+        final String accessKey,
+        final String secretKey,
+        final String sessionToken,
+        final URI wssUri,
+        final String region,
+        final long dateMilli
+    ) {
         // Step 1. Create canonical request.
         final String amzDate = getTimeStamp(dateMilli);
         final String datestamp = getDateStamp(dateMilli);
@@ -81,8 +87,14 @@ public class AwsV4Signer {
      * Same as {@link #sign(URI, String, String, String, URI, String, long)}, except the {@code wssUri}
      * parameter is extracted from the {@code uri} parameter and not passed in.
      */
-    public static URI sign(final URI uri, final String accessKey, final String secretKey,
-                           final String sessionToken, final String region, final long dateMillis) {
+    public static URI sign(
+        final URI uri,
+        final String accessKey,
+        final String secretKey,
+        final String sessionToken,
+        final String region,
+        final long dateMillis
+    ) {
         final URI wssUri = URI.create("wss://" + uri.getHost());
         return sign(uri, accessKey, secretKey, sessionToken, wssUri, region, dateMillis);
     }
@@ -112,12 +124,14 @@ public class AwsV4Signer {
      * @return Map of the query parameters to be included.
      * @see <a href="https://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html">Authenticating Requests: Using Query Parameters (AWS Signature Version 4)</a>
      */
-    static Map<String, String> buildQueryParamsMap(final URI uri,
-                                                   final String accessKey,
-                                                   final String sessionToken,
-                                                   final String region,
-                                                   final String amzDate,
-                                                   final String datestamp) {
+    static Map<String, String> buildQueryParamsMap(
+        final URI uri,
+       final String accessKey,
+       final String sessionToken,
+       final String region,
+       final String amzDate,
+       final String datestamp
+    ) {
         final ImmutableMap.Builder<String, String> queryParamsBuilder = ImmutableMap.<String, String>builder()
                 .put(AwsV4SignerConstants.X_AMZ_ALGORITHM, AwsV4SignerConstants.ALGORITHM_AWS4_HMAC_SHA_256)
                 .put(AwsV4SignerConstants.X_AMZ_CREDENTIAL, urlEncode(accessKey + "/" + createCredentialScope(region, datestamp)))
@@ -224,19 +238,19 @@ public class AwsV4Signer {
         final String canonicalHeaders = "host:" + uri.getHost() + AwsV4SignerConstants.NEW_LINE_DELIMITER;
 
         return new StringJoiner(AwsV4SignerConstants.NEW_LINE_DELIMITER)
-                .add(AwsV4SignerConstants.METHOD)
-                .add(canonicalUri)
-                .add(canonicalQuerystring)
-                .add(canonicalHeaders)
-                .add(AwsV4SignerConstants.SIGNED_HEADERS)
-                .add(payloadHash)
-                .toString();
+            .add(AwsV4SignerConstants.METHOD)
+            .add(canonicalUri)
+            .add(canonicalQuerystring)
+            .add(canonicalHeaders)
+            .add(AwsV4SignerConstants.SIGNED_HEADERS)
+            .add(payloadHash)
+            .toString();
     }
 
     static String getCanonicalUri(final URI uri) {
         return Optional.of(uri.getPath())
-                .filter(s -> !isEmpty(s))
-                .orElse("/");
+            .filter(s -> !isEmpty(s))
+            .orElse("/");
     }
 
     /**
@@ -273,11 +287,11 @@ public class AwsV4Signer {
      */
     static String signString(final String amzDate, final String credentialScope, final String canonicalRequest) {
         return new StringJoiner(AwsV4SignerConstants.NEW_LINE_DELIMITER)
-                .add(AwsV4SignerConstants.ALGORITHM_AWS4_HMAC_SHA_256)
-                .add(amzDate)
-                .add(credentialScope)
-                .add(sha256().hashString(canonicalRequest, UTF_8).toString())
-                .toString();
+            .add(AwsV4SignerConstants.ALGORITHM_AWS4_HMAC_SHA_256)
+            .add(amzDate)
+            .add(credentialScope)
+            .add(sha256().hashString(canonicalRequest, UTF_8).toString())
+            .toString();
     }
 
     static String urlEncode(final String str) {
@@ -322,10 +336,11 @@ public class AwsV4Signer {
      * @see <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/create-signed-request.html#calculate-signature">Calculate signature</a>
      */
     static byte[] getSignatureKey(
-            final String key,
-            final String dateStamp,
-            final String regionName,
-            final String serviceName) {
+        final String key,
+        final String dateStamp,
+        final String regionName,
+        final String serviceName
+    ) {
         final byte[] kSecret = ("AWS4" + key).getBytes(StandardCharsets.UTF_8);
         final byte[] kDate = hmacSha256(dateStamp, kSecret);
         final byte[] kRegion = hmacSha256(regionName, kDate);
