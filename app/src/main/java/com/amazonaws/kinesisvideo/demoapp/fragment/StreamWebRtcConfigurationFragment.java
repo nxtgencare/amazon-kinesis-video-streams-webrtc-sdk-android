@@ -27,6 +27,7 @@ import com.amazonaws.kinesisvideo.demoapp.service.WebRtc;
 
 import org.webrtc.PeerConnection;
 
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -116,7 +117,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                                 getActivity(),
                                 "ca-central-1",
                                 mViewerChannelName.getText().toString(),
-                                mViewerChannelName.getText().toString(),
+                                UUID.randomUUID().toString(),
                                 audioManager,
                                 parent::notifySignalingConnectionFailed,
                                 getIceConnectionStateChangedCallback(parent::setViewerRunning)

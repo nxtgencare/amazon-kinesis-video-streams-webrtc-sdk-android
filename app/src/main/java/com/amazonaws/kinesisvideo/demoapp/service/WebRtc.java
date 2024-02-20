@@ -14,7 +14,6 @@ import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
-import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
@@ -37,11 +36,9 @@ import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.IceCandidate;
-import org.webrtc.Logging;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SessionDescription;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
@@ -147,7 +144,7 @@ public abstract class WebRtc {
             .createPeerConnectionFactory();
 
         // Enable Google WebRTC debug logs
-        Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
+        //Logging.enableLogToDebugOutput(Logging.Severity.LS_INFO);
 
         this.audioManager = audioManager;
         originalAudioMode = audioManager.getMode();
