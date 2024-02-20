@@ -72,7 +72,7 @@ public class SignalingServiceWebSocketClient {
     }
 
     public void disconnect() {
-        executorService.submit(() -> websocketClient.disconnect());
+        executorService.submit(websocketClient::disconnect);
         try {
             executorService.shutdown();
             if (!executorService.awaitTermination(1, TimeUnit.SECONDS)) {
