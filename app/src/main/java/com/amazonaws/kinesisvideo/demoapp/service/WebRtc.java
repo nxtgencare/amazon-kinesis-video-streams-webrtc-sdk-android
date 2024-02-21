@@ -49,8 +49,10 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
@@ -67,13 +69,13 @@ public abstract class WebRtc {
      * offer/answer for a peer connection has been received and sent, the PeerConnection is added
      * to this map.
      */
-    public final HashMap<String, PeerConnection> peerConnectionFoundMap = new HashMap<>();
+    public final Map<String, PeerConnection> peerConnectionFoundMap = new ConcurrentHashMap<>();
     /**
      * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
      * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
      * this queue until after we send the answer and the peer connection is established.
      */
-    private final HashMap<String, Queue<IceCandidate>> pendingIceCandidatesMap = new HashMap<>();
+    private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
     protected PeerConnectionFactory peerConnectionFactory;
     protected String mChannelArn;
     protected String mWssEndpoint;
