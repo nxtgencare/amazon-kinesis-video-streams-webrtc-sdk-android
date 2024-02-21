@@ -19,12 +19,11 @@ import javax.websocket.MessageHandler;
 
 public class SignalingListener implements MessageHandler.Whole<String> {
     private final Gson gson = new Gson();
-    private WebRtc webRtc;
+    private final WebRtc webRtc;
 
     public SignalingListener(WebRtc webRtc) {
         this.webRtc = webRtc;
     }
-
 
     @Override
     public void onMessage(String message) {
@@ -44,8 +43,8 @@ public class SignalingListener implements MessageHandler.Whole<String> {
             return;
         }
         String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ?
-            evt.getSenderClientId() :
-            webRtc.getRecipientClientId();
+                webRtc.getRecipientClientId() :
+                evt.getSenderClientId();
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
