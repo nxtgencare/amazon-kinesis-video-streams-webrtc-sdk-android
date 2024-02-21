@@ -43,7 +43,9 @@ public class SignalingListener implements MessageHandler.Whole<String> {
         if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
             return;
         }
-        String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ? webRtc.getRecipientClientId() : webRtc.getRecipientClientId();
+        String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ?
+            evt.getSenderClientId() :
+            webRtc.getRecipientClientId();
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
