@@ -43,8 +43,8 @@ public class SignalingListener implements MessageHandler.Whole<String> {
             return;
         }
         String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ?
-                webRtc.getRecipientClientId() :
-                evt.getSenderClientId();
+            webRtc.getRecipientClientId() :
+            evt.getSenderClientId();
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
