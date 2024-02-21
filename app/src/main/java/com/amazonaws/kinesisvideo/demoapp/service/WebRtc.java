@@ -82,9 +82,8 @@ public abstract class WebRtc {
     protected int originalAudioMode;
     protected boolean originalSpeakerphoneOn;
     protected EglBase rootEglBase;
-    public PeerConnection localPeer;
     public final Consumer<Exception> signallingListeningExceptionHandler;
-    private final Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler;
+    public final Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler;
 
     public WebRtc(
         Context context,
@@ -262,7 +261,6 @@ public abstract class WebRtc {
         final String endpoint = buildEndPointUri();
         final URI signedUri = getSignedUri(mCreds, endpoint);
 
-        createLocalPeerConnection(iceConnectionStateChangedHandler);
         final String wsHost = signedUri.toString();
 
         // Step 10. Create Signaling Client Event Listeners.
@@ -291,7 +289,7 @@ public abstract class WebRtc {
         }
     }
 
-    public abstract void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler);
+    public abstract void handleSdpOffer(Event offerEvent);
 
     protected abstract void onValidClient(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler);
 
@@ -305,14 +303,13 @@ public abstract class WebRtc {
      * @param clientId The sender client id of the peer whose peer connection was just established.
      * @see #pendingIceCandidatesMap
      */
-    public void handlePendingIceCandidates(final String clientId) {
+    public void handlePendingIceCandidates(final String clientId, final PeerConnection peerConnection) {
         // Add any pending ICE candidates from the queue for the client ID
         Log.d(getTag(), "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
         final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
         while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
             final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
-            final PeerConnection peer = peerConnectionFoundMap.get(clientId);
-            final boolean addIce = peer.addIceCandidate(iceCandidate);
+            final boolean addIce = peerConnection.addIceCandidate(iceCandidate);
             Log.d(getTag(), "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
             pendingIceCandidatesQueueByClientId.remove();
         }
@@ -321,35 +318,39 @@ public abstract class WebRtc {
     }
 
     public void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
-        // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
-        // Once the peer connection is found, add them directly instead of adding it to the queue.
-        if (!peerConnectionFoundMap.containsKey(message.getSenderClientId())) {
+        String peerConnectionKey = message.getSenderClientId() == null || message.getSenderClientId().isEmpty() ? getRecipientClientId() : message.getSenderClientId();
+        Optional<PeerConnection> maybePeerConnection = Optional.ofNullable(peerConnectionFoundMap.get(peerConnectionKey));
+        maybePeerConnection.ifPresent(
+            peerConnection -> {
+                // This is the case where peer connection is established and ICE candidates are received for the established
+                // connection
+                Log.d(getTag(), "Peer connection found already");
+                // Remote sent us ICE candidates, add to local peer connection
+                final boolean addIce = peerConnection.addIceCandidate(iceCandidate);
+                Log.d(getTag(), "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            }
+        );
+
+        if (!maybePeerConnection.isPresent()) {
+            // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+            // Once the peer connection is found, add them directly instead of adding it to the queue.
             Log.d(getTag(), "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
 
             // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
-            if (pendingIceCandidatesMap.containsKey(message.getSenderClientId())) {
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(message.getSenderClientId());
+            if (pendingIceCandidatesMap.containsKey(peerConnectionKey)) {
+                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(peerConnectionKey);
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
             } else {
                 // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
                 final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
                 pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(message.getSenderClientId(), pendingIceCandidatesQueueByClientId);
+                pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
             }
-        } else {
-            // This is the case where peer connection is established and ICE candidates are received for the established
-            // connection
-            Log.d(getTag(), "Peer connection found already");
-            // Remote sent us ICE candidates, add to local peer connection
-            final PeerConnection peer = peerConnectionFoundMap.get(message.getSenderClientId());
-            final boolean addIce = peer.addIceCandidate(iceCandidate);
-
-            Log.d(getTag(), "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
         }
     }
 
-    protected void createLocalPeerConnection(Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
+    public PeerConnection createLocalPeerConnection() {
         final PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(peerIceServers);
 
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
@@ -362,7 +363,7 @@ public abstract class WebRtc {
         // Step 8. Create RTCPeerConnection.
         //  The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
         //  We also configure the Add Peer Connection Event Listeners here.
-        localPeer = peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
+        return peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
@@ -406,7 +407,7 @@ public abstract class WebRtc {
                         Base64.URL_SAFE | Base64.NO_WRAP)));
     }
 
-    protected String getRecipientClientId() {
+    public String getRecipientClientId() {
         return null;
     }
 
@@ -430,10 +431,7 @@ public abstract class WebRtc {
             rootEglBase = null;
         }
 
-        if (localPeer != null) {
-            localPeer.dispose();
-            localPeer = null;
-        }
+        peerConnectionFoundMap.values().forEach(PeerConnection::dispose);
 
         if (client != null) {
             client.disconnect();

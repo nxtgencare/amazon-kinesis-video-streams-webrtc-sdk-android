@@ -45,15 +45,15 @@ public class MasterWebRtc extends WebRtc {
     }
 
     @Override
-    public void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
+    public void handleSdpOffer(Event offerEvent) {
         Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
 
         final String sdp = Event.parseOfferEvent(offerEvent);
-
-        localPeer.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
+        PeerConnection peerConnection = createLocalPeerConnection();
+        peerConnection.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
         recipientClientId = offerEvent.getSenderClientId();
         Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
-        createSdpAnswer(signallingListeningExceptionHandler);
+        createSdpAnswer(peerConnection);
     }
 
     @Override
@@ -70,44 +70,45 @@ public class MasterWebRtc extends WebRtc {
         return mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
     }
 
-    protected void createLocalPeerConnection(Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
-        super.createLocalPeerConnection(iceConnectionStateChangedHandler);
-        addStreamToLocalPeer();
+    public PeerConnection createLocalPeerConnection() {
+        PeerConnection peerConnection = super.createLocalPeerConnection();
+        addStreamToLocalPeer(peerConnection);
+        return peerConnection;
     }
 
     @Override
-    protected String getRecipientClientId() {
+    public String getRecipientClientId() {
         return recipientClientId;
     }
 
-    private void addStreamToLocalPeer() {
+    private void addStreamToLocalPeer(PeerConnection peerConnection) {
         final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
         if (!stream.addTrack(localAudioTrack)) {
             Log.e(TAG, "Add audio track failed");
         }
 
         if (stream.audioTracks.size() > 0) {
-            localPeer.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
+            peerConnection.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
             Log.d(TAG, "Sending audio track");
         }
     }
 
     // when local is set to be the master
-    private void createSdpAnswer(Consumer<Exception> sdpAnswerErrorHandler) {
+    private void createSdpAnswer(PeerConnection peerConnection) {
         final MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
-        localPeer.createAnswer(new KinesisVideoSdpObserver() {
+        peerConnection.createAnswer(new KinesisVideoSdpObserver() {
             @Override
             public void onCreateSuccess(final SessionDescription sessionDescription) {
                 Log.d(TAG, "Creating answer: success");
                 super.onCreateSuccess(sessionDescription);
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 final Message answer = Message.createAnswerMessage(sessionDescription, recipientClientId);
                 client.sendSdpAnswer(answer);
 
-                peerConnectionFoundMap.put(recipientClientId, localPeer);
-                handlePendingIceCandidates(recipientClientId);
+                peerConnectionFoundMap.put(recipientClientId, peerConnection);
+                handlePendingIceCandidates(recipientClientId, peerConnection);
             }
 
             @Override
@@ -118,9 +119,9 @@ public class MasterWebRtc extends WebRtc {
                 if (error.contains("ERROR_CONTENT")) {
                     String codecError = "No supported codec is present in the offer!";
                     Log.e(TAG, codecError);
-                    sdpAnswerErrorHandler.accept(new Exception(codecError));
+                    signallingListeningExceptionHandler.accept(new Exception(codecError));
                 } else {
-                    sdpAnswerErrorHandler.accept(new Exception(error));
+                    signallingListeningExceptionHandler.accept(new Exception(error));
                 }
             }
         }, sdpMediaConstraints);

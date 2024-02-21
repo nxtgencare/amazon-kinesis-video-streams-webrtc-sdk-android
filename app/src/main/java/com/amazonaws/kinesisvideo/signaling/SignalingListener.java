@@ -10,7 +10,10 @@ import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.google.gson.Gson;
 
 import org.webrtc.IceCandidate;
+import org.webrtc.PeerConnection;
 import org.webrtc.SessionDescription;
+
+import java.util.Optional;
 
 import javax.websocket.MessageHandler;
 
@@ -40,32 +43,39 @@ public class SignalingListener implements MessageHandler.Whole<String> {
         if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
             return;
         }
+        String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ? webRtc.getRecipientClientId() : webRtc.getRecipientClientId();
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
-                Log.d(webRtc.getTag(), "Offer received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), "Offer received: SenderClientId=" + peerConnectionKey);
                 Log.d(webRtc.getTag(), new String(Base64.decode(evt.getMessagePayload(), 0)));
-                webRtc.handleSdpOffer(evt, webRtc.signallingListeningExceptionHandler);
+                webRtc.handleSdpOffer(evt);
                 break;
             case "SDP_ANSWER":
-                Log.d(webRtc.getTag(), "Answer received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), "Answer received: SenderClientId=" + peerConnectionKey);
                 Log.d(webRtc.getTag(), "SDP answer received from signaling");
                 final String sdp = Event.parseSdpEvent(evt);
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
-                webRtc.localPeer.setRemoteDescription(new KinesisVideoSdpObserver() {
-                    @Override
-                    public void onCreateFailure(final String error) {
-                        super.onCreateFailure(error);
-                    }
-                }, sdpAnswer);
-                Log.d(webRtc.getTag(), "Answer Client ID: " + evt.getSenderClientId());
-                webRtc.peerConnectionFoundMap.put(evt.getSenderClientId(), webRtc.localPeer);
-                // Check if ICE candidates are available in the queue and add the candidate
-                webRtc.handlePendingIceCandidates(evt.getSenderClientId());
+                Optional<PeerConnection> maybePeerConnection = Optional.ofNullable(
+                    webRtc.peerConnectionFoundMap.get(peerConnectionKey)
+                );
+
+                maybePeerConnection.ifPresent(peerConnection -> {
+                    peerConnection.setRemoteDescription(new KinesisVideoSdpObserver() {
+                        @Override
+                        public void onCreateFailure(final String error) {
+                            super.onCreateFailure(error);
+                        }
+                    }, sdpAnswer);
+
+                    Log.d(webRtc.getTag(), "Answer Client ID: " + peerConnectionKey);
+                    // Check if ICE candidates are available in the queue and add the candidate
+                    webRtc.handlePendingIceCandidates(peerConnectionKey, peerConnection);
+                });
                 break;
             case "ICE_CANDIDATE":
-                Log.d(webRtc.getTag(), "Ice Candidate received: SenderClientId=" + evt.getSenderClientId());
+                Log.d(webRtc.getTag(), "Ice Candidate received: SenderClientId=" + peerConnectionKey);
                 Log.d(webRtc.getTag(), new String(Base64.decode(evt.getMessagePayload(), 0)));
                 Log.d(webRtc.getTag(), "Received ICE candidate from remote");
                 final IceCandidate iceCandidate = Event.parseIceCandidate(evt);

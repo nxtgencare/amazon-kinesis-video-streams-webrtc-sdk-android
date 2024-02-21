@@ -14,8 +14,6 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
 import org.webrtc.SessionDescription;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 
 public class ViewerWebRtc extends WebRtc {
@@ -36,20 +34,18 @@ public class ViewerWebRtc extends WebRtc {
     }
 
     // when mobile sdk is viewer
-    private void createSdpOffer(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
+    private PeerConnection createSdpOffer(Consumer<Exception> signallingListeningExceptionHandler) {
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
-        if (localPeer == null) {
-            createLocalPeerConnection(iceConnectionStateChangedHandler);
-        }
+        PeerConnection peerConnection = createLocalPeerConnection();
 
-        localPeer.createOffer(new KinesisVideoSdpObserver() {
+        peerConnection.createOffer(new KinesisVideoSdpObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 super.onCreateSuccess(sessionDescription);
-                localPeer.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
+                peerConnection.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
                 if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
@@ -59,17 +55,22 @@ public class ViewerWebRtc extends WebRtc {
                 }
             }
         }, sdpMediaConstraints);
+
+        return peerConnection;
     }
 
     @Override
-    public void handleSdpOffer(Event offerEvent, Consumer<Exception> signallingListeningExceptionHandler) {
+    public void handleSdpOffer(Event offerEvent) {
         Log.d(getTag(), "Viewer should not be receiving SDP Offer");
     }
 
     @Override
     protected void onValidClient(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
         Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
-        createSdpOffer(signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
+        peerConnectionFoundMap.put(
+            mClientId,
+            createSdpOffer(signallingListeningExceptionHandler)
+        );
     }
 
     @Override
@@ -78,6 +79,11 @@ public class ViewerWebRtc extends WebRtc {
             Constants.CHANNEL_ARN_QUERY_PARAM +
             "=" + mChannelArn +
             "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
+    }
+
+    @Override
+    public String getRecipientClientId() {
+        return mClientId;
     }
 
     @Override

@@ -31,7 +31,7 @@ public class SignalingServiceWebSocketClient {
         final SignalingListener signalingListener,
         final ExecutorService executorService
     ) {
-        Log.d(TAG, "Connecting to URI " + uri + " as master");
+        Log.d(TAG, "Connecting to URI " + uri + " as master"); // But is it a master?
         websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
         this.executorService = executorService;
     }
@@ -52,7 +52,6 @@ public class SignalingServiceWebSocketClient {
     public void sendSdpAnswer(final Message answer) {
         executorService.submit(() -> {
             if (answer.getAction().equalsIgnoreCase("SDP_ANSWER")) {
-
                 Log.d(TAG, "Answer sent " + new String(Base64.decode(answer.getMessagePayload().getBytes(),
                         Base64.NO_WRAP | Base64.URL_SAFE)));
 
