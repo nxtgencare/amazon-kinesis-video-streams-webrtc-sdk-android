@@ -3,7 +3,7 @@ package com.amazonaws.kinesisvideo.signaling.tyrus;
 import android.util.Base64;
 import android.util.Log;
 
-import com.amazonaws.kinesisvideo.signaling.SignalingListener;
+import com.amazonaws.kinesisvideo.demoapp.service.WebRtcClientConnection;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.google.gson.Gson;
 
@@ -28,7 +28,7 @@ public class SignalingServiceWebSocketClient {
 
     public SignalingServiceWebSocketClient(
         final String uri,
-        final SignalingListener signalingListener,
+        final WebRtcClientConnection signalingListener,
         final ExecutorService executorService
     ) {
         Log.d(TAG, "Connecting to URI " + uri + " as master"); // But is it a master?

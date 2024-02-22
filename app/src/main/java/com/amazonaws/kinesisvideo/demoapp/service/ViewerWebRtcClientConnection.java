@@ -1,40 +1,30 @@
 package com.amazonaws.kinesisvideo.demoapp.service;
 
-import android.content.Context;
-import android.media.AudioManager;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
-import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
+import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.util.function.Consumer;
 
-public class ViewerWebRtc extends WebRtc {
+public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
     private static final String TAG = "ViewerWebRtc";
-    protected String mClientId;
+    protected String clientId;
 
-    public ViewerWebRtc(
-        Context context,
-        String mRegion,
-        String mChannelName,
-        String mClientId,
-        AudioManager audioManager,
-        Consumer<Exception> signallingListeningExceptionHandler,
-        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
-    ) throws Exception {
-        super(context, mRegion, mChannelName, ChannelRole.VIEWER, audioManager, signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
-        this.mClientId = mClientId;
+    public ViewerWebRtcClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+        super(peerConnectionFactory, channelDetails, stateChangeCallback);
+        this.clientId = clientId;
     }
 
     // when mobile sdk is viewer
-    private PeerConnection createSdpOffer(Consumer<Exception> signallingListeningExceptionHandler) {
+    private PeerConnection getPeerConnectionWithSdpOffer() {
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -46,12 +36,13 @@ public class ViewerWebRtc extends WebRtc {
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 super.onCreateSuccess(sessionDescription);
                 peerConnection.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
-                final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, mClientId);
+                final Message sdpOfferMessage = Message.createOfferMessage(sessionDescription, clientId);
                 if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
                     // TODO: Better exception
-                    signallingListeningExceptionHandler.accept(new Exception("SDP Client invalid"));
+                    // Publish state change with exception
+                    // signallingListeningExceptionHandler.accept(new Exception("SDP Client invalid"));
                 }
             }
         }, sdpMediaConstraints);
@@ -65,25 +56,25 @@ public class ViewerWebRtc extends WebRtc {
     }
 
     @Override
-    protected void onValidClient(Consumer<Exception> signallingListeningExceptionHandler, Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler) {
+    protected void onValidClient() {
         Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
         peerConnectionFoundMap.put(
-            mClientId,
-            createSdpOffer(signallingListeningExceptionHandler)
+            clientId,
+            getPeerConnectionWithSdpOffer()
         );
     }
 
     @Override
     protected String buildEndPointUri() {
-        return mWssEndpoint + "?" +
+        return channelDetails.getWssEndpoint() + "?" +
             Constants.CHANNEL_ARN_QUERY_PARAM +
-            "=" + mChannelArn +
-            "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + mClientId;
+            "=" + channelDetails.getChannelArn() +
+            "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + clientId;
     }
 
     @Override
     public String getRecipientClientId() {
-        return mClientId;
+        return clientId;
     }
 
     @Override

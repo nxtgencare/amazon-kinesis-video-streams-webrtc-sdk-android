@@ -1,47 +1,37 @@
 package com.amazonaws.kinesisvideo.demoapp.service;
 
-import android.content.Context;
-import android.media.AudioManager;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
-import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
-import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
+import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.util.Collections;
 import java.util.function.Consumer;
 
-public class MasterWebRtc extends WebRtc {
+public class MasterWebRtcClientConnection extends WebRtcClientConnection {
     private static final String TAG = "MasterWebRtc";
-    private static final String AudioTrackID = "KvsAudioTrack";
-    private static final String LOCAL_MEDIA_STREAM_LABEL = "KvsLocalMediaStream";
+    private static final String LOCAL_MEDIA_STREAM_LABEL = "MasterWebRtcMediaStream";
 
     private final AudioTrack localAudioTrack;
 
     private String recipientClientId;
 
-    public MasterWebRtc(
-        Context context,
-        String mRegion,
-        String channelName,
-        AudioManager audioManager,
-        Consumer<Exception> signallingListeningExceptionHandler,
-        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
-    ) throws Exception {
-        super(context, mRegion, channelName, ChannelRole.MASTER, audioManager, signallingListeningExceptionHandler, iceConnectionStateChangedHandler);
-
-        AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-        localAudioTrack = peerConnectionFactory.createAudioTrack(AudioTrackID, audioSource);
-        localAudioTrack.setEnabled(true);
+    public MasterWebRtcClientConnection(
+        PeerConnectionFactory peerConnectionFactory,
+        ChannelDetails channelDetails,
+        AudioTrack localAudioTrack,
+        Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+        super(peerConnectionFactory, channelDetails, stateChangeCallback);
+        this.localAudioTrack = localAudioTrack;
     }
 
     @Override
@@ -57,17 +47,14 @@ public class MasterWebRtc extends WebRtc {
     }
 
     @Override
-    protected void onValidClient(
-        Consumer<Exception> signallingListeningExceptionHandler,
-        Consumer<PeerConnection.IceConnectionState> iceConnectionStateChangedHandler
-    ) {
-        // Do nothing
+    protected void onValidClient() {
+        stateChangeCallback.accept(WebRtcServiceStateChange.waitingForConnection(channelDetails));
     }
 
     @Override
     protected String buildEndPointUri() {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-2.html
-        return mWssEndpoint + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + mChannelArn;
+        return channelDetails.getWssEndpoint() + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + channelDetails.getChannelArn();
     }
 
     public PeerConnection createLocalPeerConnection() {
@@ -106,7 +93,6 @@ public class MasterWebRtc extends WebRtc {
                 peerConnection.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 final Message answer = Message.createAnswerMessage(sessionDescription, recipientClientId);
                 client.sendSdpAnswer(answer);
-
                 peerConnectionFoundMap.put(recipientClientId, peerConnection);
                 handlePendingIceCandidates(recipientClientId, peerConnection);
             }
@@ -119,9 +105,10 @@ public class MasterWebRtc extends WebRtc {
                 if (error.contains("ERROR_CONTENT")) {
                     String codecError = "No supported codec is present in the offer!";
                     Log.e(TAG, codecError);
-                    signallingListeningExceptionHandler.accept(new Exception(codecError));
+                    // TODO: Better exceptions
+                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception(codecError)));
                 } else {
-                    signallingListeningExceptionHandler.accept(new Exception(error));
+                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception(error)));
                 }
             }
         }, sdpMediaConstraints);
