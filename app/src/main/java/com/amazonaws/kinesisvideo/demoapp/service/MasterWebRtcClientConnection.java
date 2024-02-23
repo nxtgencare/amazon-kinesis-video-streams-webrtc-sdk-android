@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.function.Consumer;
 
 public class MasterWebRtcClientConnection extends WebRtcClientConnection {
-    private static final String TAG = "MasterWebRtc";
+    private static final String TAG = "MasterWebRtcClientConnection";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "MasterWebRtcMediaStream";
 
     private final AudioTrack localAudioTrack;
@@ -54,7 +54,12 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
     @Override
     protected String buildEndPointUri() {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-2.html
-        return channelDetails.getWssEndpoint() + "?" + Constants.CHANNEL_ARN_QUERY_PARAM + "=" + channelDetails.getChannelArn();
+        return String.format(
+            "%s?%s=%s",
+            channelDetails.getWssEndpoint(),
+            Constants.CHANNEL_ARN_QUERY_PARAM,
+            channelDetails.getChannelArn()
+        );
     }
 
     public PeerConnection createLocalPeerConnection() {
@@ -66,6 +71,12 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
     @Override
     public String getRecipientClientId() {
         return recipientClientId;
+    }
+
+    @Override
+    public String getClientId() {
+        // Master has no client id
+        return null;
     }
 
     private void addStreamToLocalPeer(PeerConnection peerConnection) {

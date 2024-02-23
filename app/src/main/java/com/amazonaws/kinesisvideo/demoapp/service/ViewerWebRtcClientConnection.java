@@ -15,7 +15,7 @@ import org.webrtc.SessionDescription;
 import java.util.function.Consumer;
 
 public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
-    private static final String TAG = "ViewerWebRtc";
+    private static final String TAG = "ViewerWebRtcClientConnection";
     protected String clientId;
 
     public ViewerWebRtcClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
@@ -23,7 +23,6 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
         this.clientId = clientId;
     }
 
-    // when mobile sdk is viewer
     private PeerConnection getPeerConnectionWithSdpOffer() {
         MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
@@ -41,8 +40,7 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
                     // TODO: Better exception
-                    // Publish state change with exception
-                    // signallingListeningExceptionHandler.accept(new Exception("SDP Client invalid"));
+                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception("SDP Client invalid")));
                 }
             }
         }, sdpMediaConstraints);
@@ -57,7 +55,7 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
 
     @Override
     protected void onValidClient() {
-        Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer"); // Viewer
+        Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer");
         peerConnectionFoundMap.put(
             clientId,
             getPeerConnectionWithSdpOffer()
@@ -66,14 +64,24 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
 
     @Override
     protected String buildEndPointUri() {
-        return channelDetails.getWssEndpoint() + "?" +
-            Constants.CHANNEL_ARN_QUERY_PARAM +
-            "=" + channelDetails.getChannelArn() +
-            "&" + Constants.CLIENT_ID_QUERY_PARAM + "=" + clientId;
+        return String.format(
+            "%s?%s=%s&%s=%s",
+            channelDetails.getWssEndpoint(),
+            Constants.CHANNEL_ARN_QUERY_PARAM,
+            channelDetails.getChannelArn(),
+            Constants.CLIENT_ID_QUERY_PARAM,
+            clientId
+        );
     }
 
     @Override
     public String getRecipientClientId() {
+        // Viewer has no recipient
+        return null;
+    }
+
+    @Override
+    public String getClientId() {
         return clientId;
     }
 

@@ -4,13 +4,12 @@ import android.util.Base64;
 import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
-import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 import com.google.gson.Gson;
 
 import org.webrtc.AudioTrack;
@@ -21,7 +20,6 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.net.URI;
-import java.util.Date;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +31,7 @@ import java.util.function.Consumer;
 import javax.websocket.MessageHandler;
 
 public abstract class WebRtcClientConnection implements MessageHandler.Whole<String> {
-    private static final String TAG = "WebRtc";
+    private static final String TAG = "WebRtcClientConnection";
 
     private final Gson gson = new Gson();
 
@@ -55,7 +53,6 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
      * this queue until after we send the answer and the peer connection is established.
      */
     private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
-
 
     public WebRtcClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
         this.peerConnectionFactory = peerConnectionFactory;
@@ -124,7 +121,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
     }
 
     public void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
-        String peerConnectionKey = message.getSenderClientId() == null || message.getSenderClientId().isEmpty() ? getRecipientClientId() : message.getSenderClientId();
+        String peerConnectionKey = getPeerConnectionKey(message);
         Optional<PeerConnection> maybePeerConnection = Optional.ofNullable(peerConnectionFoundMap.get(peerConnectionKey));
         maybePeerConnection.ifPresent(
             peerConnection -> {
@@ -173,9 +170,8 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
         if (evt == null || evt.getMessageType() == null || evt.getMessagePayload().isEmpty()) {
             return;
         }
-        String peerConnectionKey = evt.getSenderClientId() == null || evt.getSenderClientId().isEmpty() ?
-                getRecipientClientId() :
-                evt.getSenderClientId();
+
+        String peerConnectionKey = getPeerConnectionKey(evt);
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
@@ -220,6 +216,11 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
             default:
                 break;
         }
+    }
+
+    private String getPeerConnectionKey(Event message) {
+        // The only peer we care about in viewer is ourselves so it's okay to us our own client ID as our peer connection key.
+        return channelDetails.getRole() == ChannelRole.MASTER ? message.getSenderClientId() : getClientId();
     }
 
     public PeerConnection createLocalPeerConnection() {
@@ -273,15 +274,14 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
                 + sdpMLineIndex
                 + "}";
 
-        final String senderClientId = "";
-        return new Message("ICE_CANDIDATE", getRecipientClientId(), senderClientId,
-                new String(Base64.encode(messagePayload.getBytes(),
-                        Base64.URL_SAFE | Base64.NO_WRAP)));
+        return new Message("ICE_CANDIDATE", getRecipientClientId(), getClientId(),
+            new String(Base64.encode(messagePayload.getBytes(),
+                    Base64.URL_SAFE | Base64.NO_WRAP)));
     }
 
-    public String getRecipientClientId() {
-        return null;
-    }
+    public abstract String getRecipientClientId();
+
+    public abstract String getClientId();
 
     private void addRemoteStreamToView(MediaStream stream) {
         AudioTrack remoteAudioTrack = stream.audioTracks != null && stream.audioTracks.size() > 0 ? stream.audioTracks.get(0) : null;
