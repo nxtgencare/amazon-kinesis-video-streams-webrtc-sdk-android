@@ -11,30 +11,49 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
+import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
+import com.amazonaws.kinesisvideo.demoapp.service.PeerManager;
 import com.amazonaws.kinesisvideo.demoapp.service.WebRtcService;
 import com.amazonaws.kinesisvideo.demoapp.service.WebRtcServiceStateChange;
 
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.amazonaws.mobile.auth.core.internal.util.ThreadUtils.runOnUiThread;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
     private WebRtcService webRtcService;
-    private Button masterStartButton;
-    private Button viewerStartButton;
+    private Button startBroadcastButton;
+    private Button addRemoteBroadcastListenerButton;
+
+    private RecyclerView connectedListeners;
+    private RecyclerView connectedBroadcasts;
+
+    private TextView broadcastStatus;
+    private EditText remoteBroadcastChannelName;
+
+    private PeerAdapter broadcastAdapter;
+    private PeerAdapter listenerAdapter;
+
+    private final List<PeerManager> remoteListeners = new ArrayList<>();
+    private final List<PeerManager> remoteBroadcasts = new ArrayList<>();
 
     private final AtomicReference<AWSCredentials> creds = new AtomicReference<>();
+    private View view;
 
     public static StreamWebRtcConfigurationFragment newInstance() {
         return new StreamWebRtcConfigurationFragment();
@@ -57,6 +76,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull final View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        this.view = view;
+
         runOnUiThread(() -> creds.set(KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials()));
         getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         AudioManager audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
@@ -67,48 +88,96 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             throw new RuntimeException(e);
         }
 
-        EditText mMasterChannelName = view.findViewById(R.id.master_channel_name);
-        masterStartButton = view.findViewById(R.id.master);
-        masterStartButton.setOnClickListener(event -> {
+        LinearLayoutManager viewersLayoutManager = new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false);
+        LinearLayoutManager mastersLayoutManager = new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false);
+
+        viewersLayoutManager.scrollToPosition(0);
+        mastersLayoutManager.scrollToPosition(0);
+
+        associateComponents();
+
+        connectedListeners.setLayoutManager(viewersLayoutManager);
+        connectedBroadcasts.setLayoutManager(mastersLayoutManager);
+
+        listenerAdapter = new PeerAdapter(remoteListeners);
+        broadcastAdapter = new PeerAdapter(remoteBroadcasts);
+
+        connectedListeners.setAdapter(listenerAdapter);
+        connectedBroadcasts.setAdapter(broadcastAdapter);
+
+        startBroadcastButton.setOnClickListener(event -> {
+            runOnUiThread(() -> {
+                startBroadcastButton.setText(R.string.connecting);
+                startBroadcastButton.setEnabled(false);
+            });
             Thread thread = new Thread(() -> {
-                    if (webRtcService.masterRunning()) {
-                        webRtcService.stopMaster();
-                    } else {
-                        webRtcService.startMaster(mMasterChannelName.getText().toString());
-                    }
+                if (webRtcService.masterRunning()) {
+                    webRtcService.stopMaster();
+                } else {
+                    webRtcService.startMaster(getBroadcastChannelName());
+                }
             });
             thread.start();
         });
 
-        EditText mViewerChannelName = view.findViewById(R.id.viewer_channel_name);
-        viewerStartButton = view.findViewById(R.id.viewer);
-        viewerStartButton.setOnClickListener(
-            event -> {
-                Thread thread = new Thread(() -> {
-                    if (webRtcService.viewerRunning()) {
-                        webRtcService.stopViewer();
-                    } else {
-                        webRtcService.startViewer(mViewerChannelName.getText().toString(), UUID.randomUUID().toString());
-                    }
-                });
-                thread.start();
-            }
-        );
+        addRemoteBroadcastListenerButton.setOnClickListener(event -> {
+            Thread thread = new Thread(() -> webRtcService.startListener(getRemoteBroadcastChannelName(), getUsername()));
+            thread.start();
+        });
+    }
+
+    private void associateComponents() {
+        connectedListeners = view.findViewById(R.id.connected_viewers);
+        connectedBroadcasts = view.findViewById(R.id.connected_masters);
+        startBroadcastButton = view.findViewById(R.id.start_broadcast);
+        broadcastStatus = view.findViewById(R.id.broadcast_status);
+        addRemoteBroadcastListenerButton = view.findViewById(R.id.add_remote_broadcast_listener);
+        remoteBroadcastChannelName = view.findViewById(R.id.remote_broadcast_channel_name);
+    }
+
+    private String getBroadcastChannelName() {
+        return String.format("channel-%s", getUsername());
+    }
+
+    private String getRemoteBroadcastChannelName() {
+        return remoteBroadcastChannelName.getText().toString();
+    }
+
+    private String getUsername() {
+        EditText username = view.findViewById(R.id.username);
+        return username.getText().toString();
     }
 
     private void webRtcServiceStateChange(WebRtcServiceStateChange webRtcServiceStateChange) {
         runOnUiThread(() -> {
             Toast.makeText(getContext(), webRtcServiceStateChange.toString(), Toast.LENGTH_LONG).show();
-            // TODO: Iterate over service status fields and set button values and stuff
-            masterStartButton.setText(webRtcService.masterRunning() ? R.string.stop : R.string.start);
-            viewerStartButton.setText(webRtcService.viewerRunning() ? R.string.stop : R.string.start);
+
+            if (webRtcService.masterRunning()) {
+                broadcastStatus.setText(String.format("Broadcasting on %s", webRtcService.getBroadcastChannelName()));
+            } else {
+                broadcastStatus.setText(R.string.not_broadcasting);
+            }
+
+            startBroadcastButton.setText(webRtcService.masterRunning() ? R.string.stop : R.string.start_broadcast);
+            startBroadcastButton.setEnabled(true);
+
+            List<PeerManager> newViewers = webRtcService.getListenersConnectedToBroadcast();
+            List<PeerManager> newMasters = webRtcService.getRemoteBroadcastsListeningTo();
+
+            mergePeers(remoteListeners, newViewers, listenerAdapter);
+            mergePeers(remoteBroadcasts, newMasters, broadcastAdapter);
         });
 
     }
 
+    private void mergePeers(List<PeerManager> peers, List<PeerManager> newPeers, PeerAdapter adapter) {
+        peers.clear();
+        peers.addAll(newPeers);
+        adapter.notifyDataSetChanged();
+    }
+
     @Override
     public void onDestroy() {
-        Thread.setDefaultUncaughtExceptionHandler(null);
         webRtcService.onDestroy();
         super.onDestroy();
     }

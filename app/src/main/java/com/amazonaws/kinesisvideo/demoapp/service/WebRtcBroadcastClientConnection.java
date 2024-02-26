@@ -15,17 +15,16 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
-public class MasterWebRtcClientConnection extends WebRtcClientConnection {
+public class WebRtcBroadcastClientConnection extends WebRtcClientConnection {
     private static final String TAG = "MasterWebRtcClientConnection";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "MasterWebRtcMediaStream";
-
     private final AudioTrack localAudioTrack;
 
-    private String recipientClientId;
-
-    public MasterWebRtcClientConnection(
+    public WebRtcBroadcastClientConnection(
         PeerConnectionFactory peerConnectionFactory,
         ChannelDetails channelDetails,
         AudioTrack localAudioTrack,
@@ -39,11 +38,11 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
         Log.d(TAG, "Received SDP Offer: Setting Remote Description ");
 
         final String sdp = Event.parseOfferEvent(offerEvent);
-        PeerConnection peerConnection = createLocalPeerConnection();
+        String recipientClientId = offerEvent.getSenderClientId();
+        PeerConnection peerConnection = createLocalPeerConnection(recipientClientId);
         peerConnection.setRemoteDescription(new KinesisVideoSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
-        recipientClientId = offerEvent.getSenderClientId();
         Log.d(TAG, "Received SDP offer for client ID: " + recipientClientId + ". Creating answer");
-        createSdpAnswer(peerConnection);
+        createSdpAnswer(recipientClientId, peerConnection);
     }
 
     @Override
@@ -62,15 +61,10 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
         );
     }
 
-    public PeerConnection createLocalPeerConnection() {
-        PeerConnection peerConnection = super.createLocalPeerConnection();
+    public PeerConnection createLocalPeerConnection(String recipientClientId) {
+        PeerConnection peerConnection = super.createLocalPeerConnection(recipientClientId);
         addStreamToLocalPeer(peerConnection);
         return peerConnection;
-    }
-
-    @Override
-    public String getRecipientClientId() {
-        return recipientClientId;
     }
 
     @Override
@@ -92,7 +86,7 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
     }
 
     // when local is set to be the master
-    private void createSdpAnswer(PeerConnection peerConnection) {
+    private void createSdpAnswer(String recipientClientId, PeerConnection peerConnection) {
         final MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
@@ -129,4 +123,15 @@ public class MasterWebRtcClientConnection extends WebRtcClientConnection {
     public String getTag() {
         return TAG;
     }
+
+    @Override
+    public List<PeerManager> getPeerStatus() {
+        return peerConnectionFoundMap
+            .entrySet()
+            .stream()
+            .map(e -> new PeerManager(e.getKey(), e.getValue(), () -> removePeer(e.getKey())))
+            .collect(Collectors.toList());
+    }
+
+
 }

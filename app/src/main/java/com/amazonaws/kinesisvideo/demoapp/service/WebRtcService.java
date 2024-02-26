@@ -30,7 +30,6 @@ import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.MediaConstraints;
-import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
@@ -43,6 +42,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class WebRtcService {
     private static final String TAG = "WebRtcService";
@@ -57,15 +58,14 @@ public class WebRtcService {
     protected boolean originalSpeakerphoneOn;
     protected EglBase rootEglBase;
 
-    private Map<ChannelDescription, ChannelDetails> channels = new ConcurrentHashMap<>();
-    private Optional<MasterWebRtcClientConnection> maybeMasterClient = Optional.empty();
-    private final Map<String, ViewerWebRtcClientConnection> viewerClients = new ConcurrentHashMap<>();
+    private final Map<ChannelDescription, ChannelDetails> channels = new ConcurrentHashMap<>();
+    private Optional<WebRtcBroadcastClientConnection> maybeBroadcastClient = Optional.empty();
+    private final Map<String, WebRtcListenerClientConnection> listenerClients = new ConcurrentHashMap<>();
     private Consumer<WebRtcServiceStateChange> stateChangeCallback;
 
     private boolean masterRunning;
-    private boolean viewerRunning;
-    private AudioTrack audioTrack;
-    private AWSCredentials creds;
+    private final AudioTrack audioTrack;
+    private final AWSCredentials creds;
 
     public WebRtcService(
         Context context,
@@ -265,8 +265,8 @@ public class WebRtcService {
             rootEglBase = null;
         }
 
-        maybeMasterClient.ifPresent(WebRtcClientConnection::onDestroy);
-        viewerClients.values().forEach(WebRtcClientConnection::onDestroy);
+        maybeBroadcastClient.ifPresent(WebRtcClientConnection::onDestroy);
+        listenerClients.values().forEach(WebRtcClientConnection::onDestroy);
     }
 
     private void resetAudioManager() {
@@ -278,10 +278,6 @@ public class WebRtcService {
         return masterRunning;
     }
 
-    public boolean viewerRunning() {
-        return viewerRunning;
-    }
-
     public void startMaster(String channelName) {
         ChannelDetails channelDetails = null;
         try {
@@ -291,15 +287,15 @@ public class WebRtcService {
         }
 
         try {
-            maybeMasterClient = Optional.of(
-                new MasterWebRtcClientConnection(
+            maybeBroadcastClient = Optional.of(
+                new WebRtcBroadcastClientConnection(
                     peerConnectionFactory,
                     channelDetails,
                     audioTrack,
                     stateChangeObserverAndForwarder
                 )
             );
-            maybeMasterClient.get().initWsConnection(creds);
+            maybeBroadcastClient.get().initWsConnection(creds);
             audioTrack.setEnabled(true);
         } catch (Exception e) {
             masterRunning = false;
@@ -308,17 +304,17 @@ public class WebRtcService {
     }
 
     public void stopMaster() {
-        maybeMasterClient.ifPresent(c -> {
+        maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
             stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.close(c.channelDetails));
         });
         audioTrack.setEnabled(false);
         resetAudioManager();
         masterRunning = false;
-        maybeMasterClient = Optional.empty();
+        maybeBroadcastClient = Optional.empty();
     }
 
-    public void startViewer(String channelName, String clientId) {
+    public void startListener(String channelName, String clientId) {
         ChannelDetails channelDetails = null;
         try {
             channelDetails = getChannelDetails(region, channelName, ChannelRole.VIEWER);
@@ -327,7 +323,7 @@ public class WebRtcService {
         }
 
         try {
-            ViewerWebRtcClientConnection connection = new ViewerWebRtcClientConnection(
+            WebRtcListenerClientConnection connection = new WebRtcListenerClientConnection(
                 peerConnectionFactory,
                 channelDetails,
                 clientId,
@@ -335,37 +331,36 @@ public class WebRtcService {
             );
 
             connection.initWsConnection(creds);
-            viewerClients.put(channelName, connection);
+            listenerClients.put(channelName, connection);
         } catch (Exception e) {
-            viewerRunning = false;
             stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.exception(channelDetails, e));
         }
     }
 
     private final Consumer<WebRtcServiceStateChange> stateChangeObserverAndForwarder = webRtcServiceStateChange -> {
-        if (webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER) {
-            masterRunning = maybeMasterClient.map(
-                client -> webRtcServiceStateChange.isWaitingForConnection() || client.peerConnectionFoundMap.values().stream()
-                    .anyMatch(
-                        c -> c.iceConnectionState() == PeerConnection.IceConnectionState.CONNECTED
-                    )
-            ).orElse(false);
-        }
-        if (webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.VIEWER) {
-            viewerRunning = viewerClients.values().stream().anyMatch(
-                client -> client.peerConnectionFoundMap.values().stream()
-                    .anyMatch(c -> c.iceConnectionState() == PeerConnection.IceConnectionState.CONNECTED)
-            );
+        if (
+            webRtcServiceStateChange.getChannelDetails() != null &&
+            webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER
+        ) {
+            masterRunning = maybeBroadcastClient.map(WebRtcClientConnection::isValidClient).orElse(false);
         }
         stateChangeCallback.accept(webRtcServiceStateChange);
     };
 
-    public void stopViewer() {
-        viewerClients.values().forEach(c -> {
-            c.onDestroy();
-            stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.close(c.channelDetails));
-        });
-        viewerClients.clear();
-        viewerRunning = false;
+    public String getBroadcastChannelName() {
+        return maybeBroadcastClient.map(c -> c.channelDetails.getChannelName()).orElse("");
+    }
+
+    public List<PeerManager> getListenersConnectedToBroadcast() {
+        return maybeBroadcastClient
+            .map(e -> e.getPeerStatus().stream()).orElse(Stream.empty())
+            .collect(Collectors.toList());
+    }
+
+    public List<PeerManager> getRemoteBroadcastsListeningTo() {
+        return listenerClients
+            .values().stream()
+                .flatMap(e -> e.getPeerStatus().stream())
+                .collect(Collectors.toList());
     }
 }

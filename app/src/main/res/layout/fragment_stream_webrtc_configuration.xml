@@ -12,87 +12,121 @@
         android:layout_margin="20dp"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Master Channel Name"
-            tools:ignore="HardcodedText" />
-
-        <EditText
-            android:id="@+id/master_channel_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text="demo-channel"
-            android:maxLength="256"
-            android:hint="Channel name with letter, number and ._-"
-            tools:ignore="Autofill,HardcodedText"
-            android:inputType="text" />
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
             android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/master"
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:text="Username"
+                android:textStyle="bold"
+                tools:ignore="HardcodedText" />
+
+            <EditText
+                android:id="@+id/username"
+                style="@style/Widget.AppCompat.AutoCompleteTextView"
+                android:layout_width="157dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:inputType="text"
+                android:maxLength="256"
+                android:text=""
+                tools:ignore="Autofill,HardcodedText" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/start_broadcast"
+                android:layout_width="169dp"
+                android:layout_height="55dp"
                 android:layout_gravity="center"
                 android:layout_margin="10dp"
                 android:background="@drawable/button_selector"
                 android:enabled="true"
                 android:padding="10dp"
-                android:text="@string/start"
+                android:text="@string/start_broadcast"
                 tools:ignore="HardcodedText" />
-
         </LinearLayout>
+
+
+        <TextView
+            android:id="@+id/broadcast_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/not_broadcasting"
+            android:textAlignment="center"
+            android:textStyle="italic" />
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/connected_listeners"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/connected_viewers"
+            android:layout_width="match_parent"
+            android:layout_height="163dp" />
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="10dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Viewer Channel Name"
+            android:text="Connect to broadcast:"
+            android:textStyle="bold"
             tools:ignore="HardcodedText" />
-
-        <EditText
-            android:id="@+id/viewer_channel_name"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text="demo-channel-2"
-            android:maxLength="256"
-            android:hint="Channel name with letter, number and ._-"
-            tools:ignore="Autofill,HardcodedText"
-            android:inputType="text" />
-
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
+            android:layout_height="56dp"
+            android:orientation="horizontal">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:orientation="horizontal">
+            <EditText
+                android:id="@+id/remote_broadcast_channel_name"
+                style="@style/Widget.AppCompat.AutoCompleteTextView"
+                android:layout_width="157dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:inputType="text"
+                android:maxLength="256"
+                android:text=""
+                tools:ignore="Autofill,HardcodedText" />
 
-                <Button
-                    android:id="@+id/viewer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_margin="10dp"
-                    android:background="@drawable/button_selector"
-                    android:enabled="true"
-                    android:padding="10dp"
-                    android:text="@string/start"
-                    tools:ignore="HardcodedText" />
-
-            </LinearLayout>
-
+            <Button
+                android:id="@+id/add_remote_broadcast_listener"
+                android:layout_width="169dp"
+                android:layout_height="54dp"
+                android:layout_gravity="center"
+                android:layout_margin="10dp"
+                android:background="@drawable/button_selector"
+                android:enabled="true"
+                android:padding="10dp"
+                android:text="@string/add_listener"
+                tools:ignore="HardcodedText" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/textView2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/broadcasts_connected_to"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/connected_masters"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

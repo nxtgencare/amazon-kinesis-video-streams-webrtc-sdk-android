@@ -21,6 +21,7 @@ import org.webrtc.SessionDescription;
 
 import java.net.URI;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -223,7 +224,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
         return channelDetails.getRole() == ChannelRole.MASTER ? message.getSenderClientId() : getClientId();
     }
 
-    public PeerConnection createLocalPeerConnection() {
+    public PeerConnection createLocalPeerConnection(String recipientClientId) {
         final PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(channelDetails.getPeerIceServers());
 
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
@@ -240,7 +241,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
-                final Message message = createIceCandidateMessage(iceCandidate);
+                final Message message = createIceCandidateMessage(recipientClientId, iceCandidate);
                 Log.d(getTag(), "Sending IceCandidate to remote peer " + iceCandidate);
                 client.sendIceCandidate(message);  /* Send to Peer */
             }
@@ -260,7 +261,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
         });
     }
 
-    private Message createIceCandidateMessage(final IceCandidate iceCandidate) {
+    private Message createIceCandidateMessage(final String recipientClientId, final IceCandidate iceCandidate) {
         final String sdpMid = iceCandidate.sdpMid;
         final int sdpMLineIndex = iceCandidate.sdpMLineIndex;
         final String sdp = iceCandidate.sdp;
@@ -274,12 +275,10 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
                 + sdpMLineIndex
                 + "}";
 
-        return new Message("ICE_CANDIDATE", getRecipientClientId(), getClientId(),
+        return new Message("ICE_CANDIDATE", recipientClientId, getClientId(),
             new String(Base64.encode(messagePayload.getBytes(),
                     Base64.URL_SAFE | Base64.NO_WRAP)));
     }
-
-    public abstract String getRecipientClientId();
 
     public abstract String getClientId();
 
@@ -293,7 +292,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
     }
 
     public void onDestroy() {
-        peerConnectionFoundMap.values().forEach(PeerConnection::dispose);
+        peerConnectionFoundMap.values().forEach(PeerConnection::close);
 
         if (client != null) {
             client.disconnect();
@@ -308,4 +307,10 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
     }
 
     public abstract String getTag();
+
+    public abstract List<PeerManager> getPeerStatus();
+
+    protected void removePeer(String peerConnectionKey) {
+        peerConnectionFoundMap.remove(peerConnectionKey);
+    }
 }

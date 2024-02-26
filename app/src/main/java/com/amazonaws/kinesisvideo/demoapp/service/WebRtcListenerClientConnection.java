@@ -12,13 +12,15 @@ import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
-public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
+public class WebRtcListenerClientConnection extends WebRtcClientConnection {
     private static final String TAG = "ViewerWebRtcClientConnection";
     protected String clientId;
 
-    public ViewerWebRtcClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+    public WebRtcListenerClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
         super(peerConnectionFactory, channelDetails, stateChangeCallback);
         this.clientId = clientId;
     }
@@ -28,7 +30,7 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
-        PeerConnection peerConnection = createLocalPeerConnection();
+        PeerConnection peerConnection = createLocalPeerConnection("");
 
         peerConnection.createOffer(new KinesisVideoSdpObserver() {
             @Override
@@ -56,9 +58,13 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
     @Override
     protected void onValidClient() {
         Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer");
-        peerConnectionFoundMap.put(
-            clientId,
-            getPeerConnectionWithSdpOffer()
+        PeerConnection peerConnection = getPeerConnectionWithSdpOffer();
+        peerConnectionFoundMap.put(clientId, peerConnection);
+        stateChangeCallback.accept(
+            WebRtcServiceStateChange.iceConnectionStateChange(
+                channelDetails,
+                peerConnection.iceConnectionState()
+            )
         );
     }
 
@@ -75,12 +81,6 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
     }
 
     @Override
-    public String getRecipientClientId() {
-        // Viewer has no recipient
-        return null;
-    }
-
-    @Override
     public String getClientId() {
         return clientId;
     }
@@ -88,5 +88,16 @@ public class ViewerWebRtcClientConnection extends WebRtcClientConnection {
     @Override
     public String getTag() {
         return TAG;
+    }
+
+    @Override
+    public List<PeerManager> getPeerStatus() {
+        return peerConnectionFoundMap
+            .values()
+            .stream()
+            .map(p -> new PeerManager(
+                channelDetails.getChannelName(), p, () -> removePeer(channelDetails.getChannelName()))
+            )
+            .collect(Collectors.toList());
     }
 }

@@ -11,4 +11,9 @@
     <color name="toolbar_items">#CBCBCB</color>
     <color name="button_default">#329AD6</color>
     <color name="button_pressed">#2A5C91</color>
+    <color name="blue">#0000FF</color>
+    <color name="yellow">#FFEB3B</color>
+    <color name="green">#4CAF50</color>
+    <color name="purple">#673AB7</color>
+    <color name="red">#CA1103</color>
 </resources>

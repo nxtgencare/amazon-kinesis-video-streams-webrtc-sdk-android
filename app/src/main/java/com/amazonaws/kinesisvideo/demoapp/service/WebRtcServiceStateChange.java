@@ -60,6 +60,6 @@ public class WebRtcServiceStateChange {
             (iceConnectionState != null ? iceConnectionState.toString() :
             exception
                 .map(Throwable::toString)
-                .orElse("Unknown state change"));
+                .orElse(waitingForConnection ? "Waiting for connection" : "Unknown state change"));
     }
 }
