@@ -63,7 +63,7 @@ public class WebRtcService {
     private final Map<String, WebRtcListenerClientConnection> listenerClients = new ConcurrentHashMap<>();
     private Consumer<WebRtcServiceStateChange> stateChangeCallback;
 
-    private boolean masterRunning;
+    private boolean broadcastRunning;
     private final AudioTrack audioTrack;
     private final AWSCredentials creds;
 
@@ -274,11 +274,14 @@ public class WebRtcService {
         audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
     }
 
-    public boolean masterRunning() {
-        return masterRunning;
+    public boolean broadcastRunning() {
+        return broadcastRunning;
     }
 
-    public void startMaster(String channelName) {
+    public void startBroadcast(String channelName) {
+        audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+        audioManager.setSpeakerphoneOn(true);
+
         ChannelDetails channelDetails = null;
         try {
             channelDetails = getChannelDetails(region, channelName, ChannelRole.MASTER);
@@ -298,19 +301,19 @@ public class WebRtcService {
             maybeBroadcastClient.get().initWsConnection(creds);
             audioTrack.setEnabled(true);
         } catch (Exception e) {
-            masterRunning = false;
+            broadcastRunning = false;
             stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.exception(channelDetails, e));
         }
     }
 
-    public void stopMaster() {
+    public void stopBroadcast() {
         maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
             stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.close(c.channelDetails));
         });
         audioTrack.setEnabled(false);
         resetAudioManager();
-        masterRunning = false;
+        broadcastRunning = false;
         maybeBroadcastClient = Optional.empty();
     }
 
@@ -342,7 +345,7 @@ public class WebRtcService {
             webRtcServiceStateChange.getChannelDetails() != null &&
             webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER
         ) {
-            masterRunning = maybeBroadcastClient.map(WebRtcClientConnection::isValidClient).orElse(false);
+            broadcastRunning = maybeBroadcastClient.map(WebRtcClientConnection::isValidClient).orElse(false);
         }
         stateChangeCallback.accept(webRtcServiceStateChange);
     };
