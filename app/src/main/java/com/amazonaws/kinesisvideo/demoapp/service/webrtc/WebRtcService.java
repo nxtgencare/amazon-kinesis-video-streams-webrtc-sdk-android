@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -59,9 +59,9 @@ public class WebRtcService {
     protected EglBase rootEglBase;
 
     private final Map<ChannelDescription, ChannelDetails> channels = new ConcurrentHashMap<>();
-    private Optional<WebRtcBroadcastClientConnection> maybeBroadcastClient = Optional.empty();
-    private final Map<String, WebRtcListenerClientConnection> listenerClients = new ConcurrentHashMap<>();
-    private Consumer<WebRtcServiceStateChange> stateChangeCallback;
+    private Optional<BroadcastClientConnection> maybeBroadcastClient = Optional.empty();
+    private final Map<String, ListenerClientConnection> listenerClients = new ConcurrentHashMap<>();
+    private Consumer<ServiceStateChange> stateChangeCallback;
 
     private boolean broadcastRunning;
     private final AudioTrack audioTrack;
@@ -72,7 +72,7 @@ public class WebRtcService {
         AWSCredentials creds,
         String region,
         AudioManager audioManager,
-        Consumer<WebRtcServiceStateChange> stateChangeCallBack
+        Consumer<ServiceStateChange> stateChangeCallBack
     ) throws Exception {
         this.region = region;
         this.audioManager = audioManager;
@@ -265,8 +265,8 @@ public class WebRtcService {
             rootEglBase = null;
         }
 
-        maybeBroadcastClient.ifPresent(WebRtcClientConnection::onDestroy);
-        listenerClients.values().forEach(WebRtcClientConnection::onDestroy);
+        maybeBroadcastClient.ifPresent(ClientConnection::onDestroy);
+        listenerClients.values().forEach(ClientConnection::onDestroy);
     }
 
     private void resetAudioManager() {
@@ -286,12 +286,12 @@ public class WebRtcService {
         try {
             channelDetails = getChannelDetails(region, channelName, ChannelRole.MASTER);
         } catch (Exception e) {
-            stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.exception(null, new WebRtcChannelDetailsException(e)));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
 
         try {
             maybeBroadcastClient = Optional.of(
-                new WebRtcBroadcastClientConnection(
+                new BroadcastClientConnection(
                     peerConnectionFactory,
                     channelDetails,
                     audioTrack,
@@ -302,14 +302,14 @@ public class WebRtcService {
             audioTrack.setEnabled(true);
         } catch (Exception e) {
             broadcastRunning = false;
-            stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.exception(channelDetails, e));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
         }
     }
 
     public void stopBroadcast() {
         maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
-            stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.close(c.channelDetails));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.channelDetails));
         });
         audioTrack.setEnabled(false);
         resetAudioManager();
@@ -322,11 +322,11 @@ public class WebRtcService {
         try {
             channelDetails = getChannelDetails(region, channelName, ChannelRole.VIEWER);
         } catch (Exception e) {
-            stateChangeCallback.accept(WebRtcServiceStateChange.exception(null, new WebRtcChannelDetailsException(e)));
+            stateChangeCallback.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
 
         try {
-            WebRtcListenerClientConnection connection = new WebRtcListenerClientConnection(
+            ListenerClientConnection connection = new ListenerClientConnection(
                 peerConnectionFactory,
                 channelDetails,
                 clientId,
@@ -336,16 +336,16 @@ public class WebRtcService {
             connection.initWsConnection(creds);
             listenerClients.put(channelName, connection);
         } catch (Exception e) {
-            stateChangeObserverAndForwarder.accept(WebRtcServiceStateChange.exception(channelDetails, e));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
         }
     }
 
-    private final Consumer<WebRtcServiceStateChange> stateChangeObserverAndForwarder = webRtcServiceStateChange -> {
+    private final Consumer<ServiceStateChange> stateChangeObserverAndForwarder = webRtcServiceStateChange -> {
         if (
             webRtcServiceStateChange.getChannelDetails() != null &&
             webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER
         ) {
-            broadcastRunning = maybeBroadcastClient.map(WebRtcClientConnection::isValidClient).orElse(false);
+            broadcastRunning = maybeBroadcastClient.map(ClientConnection::isValidClient).orElse(false);
         }
         stateChangeCallback.accept(webRtcServiceStateChange);
     };

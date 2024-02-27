@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
 import android.util.Log;
 
@@ -16,11 +16,11 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class WebRtcListenerClientConnection extends WebRtcClientConnection {
+public class ListenerClientConnection extends ClientConnection {
     private static final String TAG = "ViewerWebRtcClientConnection";
     protected String clientId;
 
-    public WebRtcListenerClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+    public ListenerClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<ServiceStateChange> stateChangeCallback) {
         super(peerConnectionFactory, channelDetails, stateChangeCallback);
         this.clientId = clientId;
     }
@@ -42,7 +42,7 @@ public class WebRtcListenerClientConnection extends WebRtcClientConnection {
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
                     // TODO: Better exception
-                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception("SDP Client invalid")));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception("SDP Client invalid")));
                 }
             }
         }, sdpMediaConstraints);
@@ -61,7 +61,7 @@ public class WebRtcListenerClientConnection extends WebRtcClientConnection {
         PeerConnection peerConnection = getPeerConnectionWithSdpOffer();
         peerConnectionFoundMap.put(clientId, peerConnection);
         stateChangeCallback.accept(
-            WebRtcServiceStateChange.iceConnectionStateChange(
+            ServiceStateChange.iceConnectionStateChange(
                 channelDetails,
                 peerConnection.iceConnectionState()
             )

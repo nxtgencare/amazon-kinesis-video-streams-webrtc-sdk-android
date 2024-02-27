@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
 import android.util.Log;
 

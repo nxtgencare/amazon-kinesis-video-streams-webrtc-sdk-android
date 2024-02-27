@@ -46,7 +46,7 @@ public class StartUpActivity extends AppCompatActivity {
                     new Callback<SignInResult>() {
                         @Override
                         public void onResult(SignInResult result) {
-                            Log.d(TAG,String.format("Sign In Attempt Info: sign in state: %s",result.getSignInState()));
+                            Log.d(TAG,String.format("Sign In Attempt Info: sign in state: %s", result.getSignInState()));
                             latch.countDown();
                         }
 

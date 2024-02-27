@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
 import android.util.Log;
 
@@ -19,16 +19,16 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class WebRtcBroadcastClientConnection extends WebRtcClientConnection {
+public class BroadcastClientConnection extends ClientConnection {
     private static final String TAG = "WebRtcBroadcastClientConnection";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "WebRtcBroadcastMediaStream";
     private final AudioTrack localAudioTrack;
 
-    public WebRtcBroadcastClientConnection(
+    public BroadcastClientConnection(
         PeerConnectionFactory peerConnectionFactory,
         ChannelDetails channelDetails,
         AudioTrack localAudioTrack,
-        Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+        Consumer<ServiceStateChange> stateChangeCallback) {
         super(peerConnectionFactory, channelDetails, stateChangeCallback);
         this.localAudioTrack = localAudioTrack;
     }
@@ -47,7 +47,7 @@ public class WebRtcBroadcastClientConnection extends WebRtcClientConnection {
 
     @Override
     protected void onValidClient() {
-        stateChangeCallback.accept(WebRtcServiceStateChange.waitingForConnection(channelDetails));
+        stateChangeCallback.accept(ServiceStateChange.waitingForConnection(channelDetails));
     }
 
     @Override
@@ -111,9 +111,9 @@ public class WebRtcBroadcastClientConnection extends WebRtcClientConnection {
                     String codecError = "No supported codec is present in the offer!";
                     Log.e(TAG, codecError);
                     // TODO: Better exceptions
-                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception(codecError)));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception(codecError)));
                 } else {
-                    stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, new Exception(error)));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception(error)));
                 }
             }
         }, sdpMediaConstraints);

@@ -1,9 +1,9 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
-public class WebRtcChannelDetailsException extends Exception {
+public class ChannelDetailsException extends Exception {
     private final Exception innerException;
 
-    public WebRtcChannelDetailsException(Exception e) {
+    public ChannelDetailsException(Exception e) {
         super(e);
         this.innerException = e;
     }

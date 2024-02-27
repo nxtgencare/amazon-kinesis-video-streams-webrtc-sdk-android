@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,9 +26,9 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
-import com.amazonaws.kinesisvideo.demoapp.service.PeerManager;
-import com.amazonaws.kinesisvideo.demoapp.service.WebRtcService;
-import com.amazonaws.kinesisvideo.demoapp.service.WebRtcServiceStateChange;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.WebRtcService;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ServiceStateChange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.amazonaws.mobile.auth.core.internal.util.ThreadUtils.runOnUiThread;
 
 public class StreamWebRtcConfigurationFragment extends Fragment {
+    private static final String TAG = "StreamWebRtcConfigurationFragment";
     private WebRtcService webRtcService;
     private Button startBroadcastButton;
     private Button addRemoteBroadcastListenerButton;
@@ -148,9 +150,13 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         return username.getText().toString();
     }
 
-    private void webRtcServiceStateChange(WebRtcServiceStateChange webRtcServiceStateChange) {
+    private void webRtcServiceStateChange(ServiceStateChange webRtcServiceStateChange) {
         runOnUiThread(() -> {
-            Toast.makeText(getContext(), webRtcServiceStateChange.toString(), Toast.LENGTH_LONG).show();
+            try {
+                Toast.makeText(getContext(), webRtcServiceStateChange.toString(), Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Log.e(TAG, String.format("Toast error: %s", e.getMessage()), e);
+            }
 
             if (webRtcService.broadcastRunning()) {
                 broadcastStatus.setText(String.format("Broadcasting on %s", webRtcService.getBroadcastChannelName()));

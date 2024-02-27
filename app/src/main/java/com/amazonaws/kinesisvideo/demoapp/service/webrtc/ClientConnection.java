@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
 import android.util.Base64;
 import android.util.Log;
@@ -31,7 +31,7 @@ import java.util.function.Consumer;
 
 import javax.websocket.MessageHandler;
 
-public abstract class WebRtcClientConnection implements MessageHandler.Whole<String> {
+public abstract class ClientConnection implements MessageHandler.Whole<String> {
     private static final String TAG = "WebRtcClientConnection";
 
     private final Gson gson = new Gson();
@@ -39,7 +39,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
     protected PeerConnectionFactory peerConnectionFactory;
     protected static volatile SignalingServiceWebSocketClient client;
     protected final ChannelDetails channelDetails;
-    protected final Consumer<WebRtcServiceStateChange> stateChangeCallback;
+    protected final Consumer<ServiceStateChange> stateChangeCallback;
 
     /**
      * Mapping of established peer connections to the peer's sender id. In other words, if an SDP
@@ -55,7 +55,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
      */
     private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
 
-    public WebRtcClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<WebRtcServiceStateChange> stateChangeCallback) {
+    public ClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<ServiceStateChange> stateChangeCallback) {
         this.peerConnectionFactory = peerConnectionFactory;
         this.channelDetails = channelDetails;
         this.stateChangeCallback = stateChangeCallback;
@@ -229,10 +229,13 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
 
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
         rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
-        rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
         rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
+
+        // TODO: Decide if we want to keep these after testing. -- GATHER_CONTINUALLY overrides default.
+        // rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        rtcConfig.disableIPv6OnWifi = true;
 
         // Step 8. Create RTCPeerConnection.
         //  The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
@@ -256,7 +259,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
             @Override
             public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
                 super.onIceConnectionChange(iceConnectionState);
-                stateChangeCallback.accept(WebRtcServiceStateChange.iceConnectionStateChange(channelDetails, iceConnectionState));
+                stateChangeCallback.accept(ServiceStateChange.iceConnectionStateChange(channelDetails, iceConnectionState));
             }
         });
     }
@@ -303,7 +306,7 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
     }
 
     public void onException(Exception e) {
-        stateChangeCallback.accept(WebRtcServiceStateChange.exception(channelDetails, e));
+        stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, e));
     }
 
     public abstract String getTag();
@@ -312,6 +315,6 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
 
     protected void removePeer(String peerConnectionKey) {
         peerConnectionFoundMap.remove(peerConnectionKey);
-        stateChangeCallback.accept(WebRtcServiceStateChange.remove(channelDetails));
+        stateChangeCallback.accept(ServiceStateChange.remove(channelDetails));
     }
 }

@@ -13,7 +13,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.amazonaws.kinesisvideo.demoapp.R;
-import com.amazonaws.kinesisvideo.demoapp.service.PeerManager;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
 
 import org.webrtc.PeerConnection;
 
