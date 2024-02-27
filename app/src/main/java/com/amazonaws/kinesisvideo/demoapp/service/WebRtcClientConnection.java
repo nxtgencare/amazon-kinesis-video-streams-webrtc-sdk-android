@@ -312,5 +312,6 @@ public abstract class WebRtcClientConnection implements MessageHandler.Whole<Str
 
     protected void removePeer(String peerConnectionKey) {
         peerConnectionFoundMap.remove(peerConnectionKey);
+        stateChangeCallback.accept(WebRtcServiceStateChange.remove(channelDetails));
     }
 }

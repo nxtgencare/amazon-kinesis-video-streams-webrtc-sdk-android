@@ -96,7 +96,7 @@ public class WebRtcListenerClientConnection extends WebRtcClientConnection {
             .values()
             .stream()
             .map(p -> new PeerManager(
-                channelDetails.getChannelName(), p, () -> removePeer(channelDetails.getChannelName()))
+                channelDetails.getChannelName(), p, () -> removePeer(clientId))
             )
             .collect(Collectors.toList());
     }

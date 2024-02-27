@@ -46,6 +46,10 @@ public class WebRtcServiceStateChange {
         return new WebRtcServiceStateChange(channelDetails);
     }
 
+    public static WebRtcServiceStateChange remove(ChannelDetails channelDetails) {
+        return new WebRtcServiceStateChange(channelDetails);
+    }
+
     public ChannelDetails getChannelDetails() {
         return channelDetails;
     }
