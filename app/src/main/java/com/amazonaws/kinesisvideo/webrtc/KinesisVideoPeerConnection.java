@@ -13,11 +13,10 @@ import org.webrtc.RtpReceiver;
  * Listener for Peer connection events. Prints event info to the logs at debug level.
  */
 public class KinesisVideoPeerConnection implements PeerConnection.Observer {
+    private final String tag;
 
-    private final static String TAG = "KVSPeerConnection";
-
-    public KinesisVideoPeerConnection() {
-
+    public KinesisVideoPeerConnection(String tag) {
+        this.tag = tag;
     }
 
     /**
@@ -25,7 +24,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onSignalingChange(final PeerConnection.SignalingState signalingState) {
-        Log.d(TAG, "onSignalingChange(): signalingState = [" + signalingState + "]");
+        Log.d(getTag(), "onSignalingChange(): signalingState = [" + signalingState + "]");
     }
 
     /**
@@ -33,7 +32,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
-        Log.d(TAG, "onIceConnectionChange(): iceConnectionState = [" + iceConnectionState + "]");
+        Log.d(getTag(), "onIceConnectionChange(): iceConnectionState = [" + iceConnectionState + "]");
     }
 
     /**
@@ -41,7 +40,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceConnectionReceivingChange(final boolean connectionChange) {
-        Log.d(TAG, "onIceConnectionReceivingChange(): connectionChange = [" + connectionChange + "]");
+        Log.d(getTag(), "onIceConnectionReceivingChange(): connectionChange = [" + connectionChange + "]");
     }
 
     /**
@@ -49,7 +48,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceGatheringChange(final PeerConnection.IceGatheringState iceGatheringState) {
-        Log.d(TAG, "onIceGatheringChange(): iceGatheringState = [" + iceGatheringState + "]");
+        Log.d(getTag(), "onIceGatheringChange(): iceGatheringState = [" + iceGatheringState + "]");
     }
 
     /**
@@ -57,7 +56,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceCandidate(final IceCandidate iceCandidate) {
-        Log.d(TAG, "onIceCandidate(): iceCandidate = [" + iceCandidate + "]");
+        Log.d(getTag(), "onIceCandidate(): iceCandidate = [" + iceCandidate + "]");
     }
 
     /**
@@ -65,7 +64,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onIceCandidatesRemoved(final IceCandidate[] iceCandidates) {
-        Log.d(TAG, "onIceCandidatesRemoved(): iceCandidates Length = [" + iceCandidates.length + "]");
+        Log.d(getTag(), "onIceCandidatesRemoved(): iceCandidates Length = [" + iceCandidates.length + "]");
     }
 
     /**
@@ -80,7 +79,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
                 "local: " + event.local,
                 "lastReceivedMs: " + event.lastDataReceivedMs) +
             "}";
-        Log.d(TAG, "onSelectedCandidatePairChanged(): event = " + eventString);
+        Log.d(getTag(), "onSelectedCandidatePairChanged(): event = " + eventString);
     }
 
     /**
@@ -88,7 +87,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onAddStream(final MediaStream mediaStream) {
-        Log.d(TAG, "onAddStream(): mediaStream = [" + mediaStream + "]");
+        Log.d(getTag(), "onAddStream(): mediaStream = [" + mediaStream + "]");
     }
 
     /**
@@ -96,7 +95,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onRemoveStream(final MediaStream mediaStream) {
-        Log.d(TAG, "onRemoveStream(): mediaStream = [" + mediaStream + "]");
+        Log.d(getTag(), "onRemoveStream(): mediaStream = [" + mediaStream + "]");
     }
 
     /**
@@ -104,7 +103,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onDataChannel(final DataChannel dataChannel) {
-        Log.d(TAG, "onDataChannel(): dataChannel = [" + dataChannel + "]");
+        Log.d(getTag(), "onDataChannel(): dataChannel = [" + dataChannel + "]");
     }
 
     /**
@@ -112,7 +111,7 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
      */
     @Override
     public void onRenegotiationNeeded() {
-        Log.d(TAG, "onRenegotiationNeeded():");
+        Log.d(getTag(), "onRenegotiationNeeded():");
     }
 
     /**
@@ -121,8 +120,12 @@ public class KinesisVideoPeerConnection implements PeerConnection.Observer {
     @Override
     public void onAddTrack(final RtpReceiver rtpReceiver, final MediaStream[] mediaStreams) {
         Log.d(
-            TAG,
+                getTag(),
             "onAddTrack(): rtpReceiver = [" + rtpReceiver + "], " + "mediaStreams Length = [" + mediaStreams.length + "]"
         );
+    }
+
+    private String getTag() {
+        return tag;
     }
 }

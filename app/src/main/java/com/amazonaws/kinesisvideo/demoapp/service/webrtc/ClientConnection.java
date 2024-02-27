@@ -239,7 +239,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         // Step 8. Create RTCPeerConnection.
         //  The RTCPeerConnection is the primary interface for WebRTC communications in the Web.
         //  We also configure the Add Peer Connection Event Listeners here.
-        return peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection() {
+        return peerConnectionFactory.createPeerConnection(rtcConfig, new KinesisVideoPeerConnection(getTag()) {
             @Override
             public void onIceCandidate(final IceCandidate iceCandidate) {
                 super.onIceCandidate(iceCandidate);
