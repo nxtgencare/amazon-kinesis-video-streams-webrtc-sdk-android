@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ListenerClientConnection extends ClientConnection {
-    private static final String TAG = "ViewerWebRtcClientConnection";
+    private static final String TAG = "ListenerClientConnection";
     protected String clientId;
 
     public ListenerClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<ServiceStateChange> stateChangeCallback) {

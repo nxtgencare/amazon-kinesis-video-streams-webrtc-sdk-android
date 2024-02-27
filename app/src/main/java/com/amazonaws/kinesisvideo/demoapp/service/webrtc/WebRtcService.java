@@ -89,10 +89,12 @@ public class WebRtcService {
             throw new Exception("Create client failed with " + e.getMessage());
         }
 
-        PeerConnectionFactory.initialize(PeerConnectionFactory
-            .InitializationOptions
-            .builder(context)
-            .createInitializationOptions());
+        PeerConnectionFactory.initialize(
+            PeerConnectionFactory
+                .InitializationOptions
+                .builder(context)
+                .createInitializationOptions()
+        );
 
         // codecs are mandatory even if we aren't using them.
         final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());

@@ -32,7 +32,6 @@ import java.util.function.Consumer;
 import javax.websocket.MessageHandler;
 
 public abstract class ClientConnection implements MessageHandler.Whole<String> {
-    private static final String TAG = "WebRtcClientConnection";
 
     private final Gson gson = new Gson();
 
@@ -75,7 +74,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         //          This is the actual client that is used to send messages over the signaling channel.
         //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
         try {
-            client = new SignalingServiceWebSocketClient(wsHost, this, Executors.newFixedThreadPool(10));
+            client = new SignalingServiceWebSocketClient(getTag(), wsHost, this, Executors.newFixedThreadPool(10));
             Log.d(getTag(), "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
         } catch (final Exception e) {
             Log.e(getTag(), "Exception with websocket client: " + e);
@@ -160,7 +159,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
             return;
         }
 
-        Log.d(TAG, "Received objMessage: " + message);
+        Log.d(getTag(), "Received objMessage: " + message);
 
         if (!message.contains("messagePayload")) {
             return;
@@ -176,13 +175,13 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
 
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
-                Log.d(TAG, "Offer received: SenderClientId=" + peerConnectionKey);
-                Log.d(TAG, new String(Base64.decode(evt.getMessagePayload(), 0)));
+                Log.d(getTag(), "Offer received: SenderClientId=" + peerConnectionKey);
+                Log.d(getTag(), new String(Base64.decode(evt.getMessagePayload(), 0)));
                 handleSdpOffer(evt);
                 break;
             case "SDP_ANSWER":
-                Log.d(TAG, "Answer received: SenderClientId=" + peerConnectionKey);
-                Log.d(TAG, "SDP answer received from signaling");
+                Log.d(getTag(), "Answer received: SenderClientId=" + peerConnectionKey);
+                Log.d(getTag(), "SDP answer received from signaling");
                 final String sdp = Event.parseSdpEvent(evt);
                 final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
 
@@ -198,7 +197,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
                         }
                     }, sdpAnswer);
 
-                    Log.d(TAG, "Answer Client ID: " + peerConnectionKey);
+                    Log.d(getTag(), "Answer Client ID: " + peerConnectionKey);
                     // Check if ICE candidates are available in the queue and add the candidate
                     handlePendingIceCandidates(peerConnectionKey, peerConnection);
                 });
@@ -211,7 +210,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
                 if (iceCandidate != null) {
                     checkAndAddIceCandidate(evt, iceCandidate);
                 } else {
-                    Log.e(TAG, "Invalid ICE candidate: " + evt);
+                    Log.e(getTag(), "Invalid ICE candidate: " + evt);
                 }
                 break;
             default:

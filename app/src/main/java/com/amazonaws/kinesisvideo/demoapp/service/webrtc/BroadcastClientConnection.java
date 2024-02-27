@@ -20,8 +20,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class BroadcastClientConnection extends ClientConnection {
-    private static final String TAG = "WebRtcBroadcastClientConnection";
-    private static final String LOCAL_MEDIA_STREAM_LABEL = "WebRtcBroadcastMediaStream";
+    private static final String TAG = "BroadcastClientConnection";
+    private static final String LOCAL_MEDIA_STREAM_LABEL = "BroadcastClientMediaStream";
     private final AudioTrack localAudioTrack;
 
     public BroadcastClientConnection(
