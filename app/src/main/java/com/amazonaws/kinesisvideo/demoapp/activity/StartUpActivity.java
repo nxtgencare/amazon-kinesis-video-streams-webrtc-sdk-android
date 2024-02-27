@@ -52,7 +52,7 @@ public class StartUpActivity extends AppCompatActivity {
 
                         @Override
                         public void onError(Exception e) {
-                            Log.e(TAG, "Sign In Attempt error", e);
+                            Log.e(TAG, String.format("Sign In Attempt error: %s", e.getMessage()), e);
                             latch.countDown();
                         }
                     }
