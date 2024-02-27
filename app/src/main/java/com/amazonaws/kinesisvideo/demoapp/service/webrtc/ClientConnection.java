@@ -316,4 +316,13 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         peerConnectionFoundMap.remove(peerConnectionKey);
         stateChangeCallback.accept(ServiceStateChange.remove(channelDetails));
     }
+
+    public String getChannelName() {
+        return channelDetails.getChannelName();
+    }
+
+    public String getChannelRole() {
+        return channelDetails.getRole().toString();
+    }
+
 }

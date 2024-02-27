@@ -33,7 +33,7 @@ public class SignalingServiceWebSocketClient {
         final ExecutorService executorService
     ) {
         this.tag = tag;
-        Log.d(getTag(), "Connecting to URI " + uri + " as master"); // But is it a master?
+        Log.d(getTag(), "Connecting to URI " + uri + " as " + signalingListener.getChannelRole());
         websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
         this.executorService = executorService;
     }
