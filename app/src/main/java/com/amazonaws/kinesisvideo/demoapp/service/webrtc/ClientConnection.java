@@ -232,8 +232,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED;
 
-        // TODO: Decide if we want to keep these after testing. -- GATHER_CONTINUALLY overrides default.
-        // rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
         rtcConfig.disableIPv6OnWifi = true;
 
         // Step 8. Create RTCPeerConnection.
