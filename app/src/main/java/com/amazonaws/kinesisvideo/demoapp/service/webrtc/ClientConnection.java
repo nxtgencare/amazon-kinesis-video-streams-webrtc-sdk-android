@@ -36,7 +36,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
     private final Gson gson = new Gson();
 
     protected PeerConnectionFactory peerConnectionFactory;
-    protected static volatile SignalingServiceWebSocketClient client;
+    protected volatile SignalingServiceWebSocketClient client;
     protected final ChannelDetails channelDetails;
     protected final Consumer<ServiceStateChange> stateChangeCallback;
 
