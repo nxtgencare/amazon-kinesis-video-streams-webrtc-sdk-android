@@ -6,7 +6,6 @@ import org.webrtc.PeerConnection;
 
 public class PeerManager {
 
-    private static final String TAG = "PeerManager";
     private final String name;
     private final PeerConnection peerConnection;
     private final Runnable cleanup;

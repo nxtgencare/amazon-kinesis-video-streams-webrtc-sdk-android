@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
+
 import org.webrtc.PeerConnection;
 
 import java.util.Optional;

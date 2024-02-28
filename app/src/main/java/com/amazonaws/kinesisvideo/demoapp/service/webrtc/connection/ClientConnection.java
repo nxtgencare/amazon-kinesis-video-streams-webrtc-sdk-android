@@ -1,9 +1,13 @@
-package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
+package com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection;
 
 import android.util.Base64;
 import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ServiceStateChange;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.WebRtcService;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
@@ -59,6 +63,8 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         this.channelDetails = channelDetails;
         this.stateChangeCallback = stateChangeCallback;
     }
+
+    public ChannelDetails getChannelDetails() { return channelDetails; }
 
     public boolean isValidClient() {
         return client != null && client.isOpen();
@@ -315,13 +321,4 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
         peerConnectionFoundMap.remove(peerConnectionKey);
         stateChangeCallback.accept(ServiceStateChange.remove(channelDetails));
     }
-
-    public String getChannelName() {
-        return channelDetails.getChannelName();
-    }
-
-    public String getChannelRole() {
-        return channelDetails.getRole().toString();
-    }
-
 }

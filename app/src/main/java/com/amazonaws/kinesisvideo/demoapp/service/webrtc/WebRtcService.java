@@ -6,6 +6,12 @@ import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.BroadcastClientConnection;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ClientConnection;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ListenerClientConnection;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.exception.ChannelDetailsException;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDescription;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
@@ -311,7 +317,7 @@ public class WebRtcService {
     public void stopBroadcast() {
         maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
-            stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.channelDetails));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.getChannelDetails()));
         });
         audioTrack.setEnabled(false);
         resetAudioManager();
@@ -353,7 +359,7 @@ public class WebRtcService {
     };
 
     public String getBroadcastChannelName() {
-        return maybeBroadcastClient.map(c -> c.channelDetails.getChannelName()).orElse("");
+        return maybeBroadcastClient.map(c -> c.getChannelDetails().getChannelName()).orElse("");
     }
 
     public List<PeerManager> getListenersConnectedToBroadcast() {

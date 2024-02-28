@@ -3,7 +3,7 @@ package com.amazonaws.kinesisvideo.signaling.tyrus;
 import android.util.Base64;
 import android.util.Log;
 
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ClientConnection;
+import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ClientConnection;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.google.gson.Gson;
 
@@ -33,7 +33,7 @@ public class SignalingServiceWebSocketClient {
         final ExecutorService executorService
     ) {
         this.tag = tag;
-        Log.d(getTag(), "Connecting to URI " + uri + " as " + signalingListener.getChannelRole());
+        Log.d(getTag(), "Connecting to URI " + uri + " as " + signalingListener.getChannelDetails().getRole());
         websocketClient = new WebSocketClient(uri, new ClientManager(), signalingListener, executorService);
         this.executorService = executorService;
     }
