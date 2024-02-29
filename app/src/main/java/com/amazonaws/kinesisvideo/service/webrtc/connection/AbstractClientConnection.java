@@ -4,13 +4,14 @@ import android.util.Base64;
 import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
-import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
-import com.amazonaws.kinesisvideo.service.webrtc.WebRtcService;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
+import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
@@ -24,6 +25,7 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.net.URI;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +75,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
     public void initWsConnection(AWSCredentials creds) throws Exception {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
         final String endpoint = buildEndPointUri();
-        final URI signedUri = WebRtcService.getSignedUri(channelDetails, creds, endpoint);
+        final URI signedUri = getSignedUri(channelDetails, creds, endpoint);
         final String wsHost = signedUri.toString();
 
         // Step 11. Create SignalingServiceWebSocketClient.
@@ -319,5 +321,38 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
     public abstract String getTag();
 
     public abstract List<PeerManager> getPeerStatus();
+
+
+
+    /**
+     * Constructs and returns signed URL for the specified endpoint.
+     *
+     * @param endpoint The websocket endpoint (master or viewer endpoint)
+     * @return A signed URL. {@code null} if there was an issue fetching credentials.
+     */
+    private static URI getSignedUri(ChannelDetails channelDetails, AWSCredentials creds, String endpoint) throws Exception {
+        final String accessKey = creds.getAWSAccessKeyId();
+        final String secretKey = creds.getAWSSecretKey();
+        final String sessionToken = Optional.of(creds)
+            .filter(c -> c instanceof AWSSessionCredentials)
+            .map(awsCredentials -> (AWSSessionCredentials) awsCredentials)
+            .map(AWSSessionCredentials::getSessionToken)
+            .orElse("");
+
+        if (accessKey.isEmpty() || secretKey.isEmpty()) {
+            // TODO: Make a custom exception
+            throw new Exception("Failed to fetch credentials!");
+        }
+
+        return AwsV4Signer.sign(
+            URI.create(endpoint),
+            accessKey,
+            secretKey,
+            sessionToken,
+            URI.create(channelDetails.getWssEndpoint()),
+            channelDetails.getRegion(),
+            new Date().getTime()
+        );
+    }
 
 }

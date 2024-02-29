@@ -5,15 +5,13 @@ import android.media.AudioManager;
 import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.kinesisvideo.service.webrtc.connection.BroadcastClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.BroadcastClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.ListenerClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.ChannelDetailsException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
-import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.regions.Region;
@@ -48,10 +46,8 @@ import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -136,7 +132,7 @@ public class WebRtcService {
      * @return The region in String form. {@code null} if not.
      * @throws IllegalStateException if awsconfiguration.json is not properly configured.
      */
-    public String getRegion() {
+    private String getRegion() {
         final AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
         if (configuration == null) {
             throw new IllegalStateException("awsconfiguration.json has not been properly configured!");
@@ -153,38 +149,7 @@ public class WebRtcService {
         return region;
     }
 
-    /**
-     * Constructs and returns signed URL for the specified endpoint.
-     *
-     * @param endpoint The websocket endpoint (master or viewer endpoint)
-     * @return A signed URL. {@code null} if there was an issue fetching credentials.
-     */
-    public static URI getSignedUri(ChannelDetails channelDetails, AWSCredentials creds, String endpoint) throws Exception {
-        final String accessKey = creds.getAWSAccessKeyId();
-        final String secretKey = creds.getAWSSecretKey();
-        final String sessionToken = Optional.of(creds)
-                .filter(c -> c instanceof AWSSessionCredentials)
-                .map(awsCredentials -> (AWSSessionCredentials) awsCredentials)
-                .map(AWSSessionCredentials::getSessionToken)
-                .orElse("");
-
-        if (accessKey.isEmpty() || secretKey.isEmpty()) {
-            // TODO: Make a custom exception
-            throw new Exception("Failed to fetch credentials!");
-        }
-
-        return AwsV4Signer.sign(
-                URI.create(endpoint),
-                accessKey,
-                secretKey,
-                sessionToken,
-                URI.create(channelDetails.getWssEndpoint()),
-                channelDetails.getRegion(),
-                new Date().getTime()
-        );
-    }
-
-    public ChannelDetails getChannelDetails(String region, String channelName, ChannelRole role) throws Exception {
+    private ChannelDetails getChannelDetails(String region, String channelName, ChannelRole role) throws Exception {
         final ChannelDescription channelDescription = new ChannelDescription(region, channelName, role);
         if (channels.containsKey(channelDescription)) {
             return channels.get(channelDescription);
