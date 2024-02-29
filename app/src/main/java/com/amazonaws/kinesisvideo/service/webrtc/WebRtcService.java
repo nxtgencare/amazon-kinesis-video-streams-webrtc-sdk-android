@@ -2,49 +2,27 @@ package com.amazonaws.kinesisvideo.service.webrtc;
 
 import android.content.Context;
 import android.media.AudioManager;
-import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.BroadcastClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.ListenerClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.AWSKinesisVideoClientCreationException;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.ChannelDetailsException;
+import com.amazonaws.kinesisvideo.service.webrtc.factory.PeerConnectionFactoryBuilder;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.mobile.client.AWSMobileClient;
-import com.amazonaws.mobile.config.AWSConfiguration;
-import com.amazonaws.regions.Region;
-import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
-import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelRequest;
-import com.amazonaws.services.kinesisvideo.model.CreateSignalingChannelResult;
-import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelRequest;
-import com.amazonaws.services.kinesisvideo.model.DescribeSignalingChannelResult;
-import com.amazonaws.services.kinesisvideo.model.GetSignalingChannelEndpointRequest;
-import com.amazonaws.services.kinesisvideo.model.GetSignalingChannelEndpointResult;
-import com.amazonaws.services.kinesisvideo.model.ResourceEndpointListItem;
-import com.amazonaws.services.kinesisvideo.model.ResourceNotFoundException;
-import com.amazonaws.services.kinesisvideo.model.SingleMasterChannelEndpointConfiguration;
-import com.amazonaws.services.kinesisvideosignaling.AWSKinesisVideoSignalingClient;
-import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequest;
-import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
-import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
 import org.apache.commons.lang3.StringUtils;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
-import org.webrtc.DefaultVideoDecoderFactory;
-import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.VideoDecoderFactory;
-import org.webrtc.VideoEncoderFactory;
-import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -58,26 +36,20 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class WebRtcService {
-    private static final String TAG = "WebRtcService";
-    private static final String[] SUPPORTED_PROTOCOLS = new String[]{"WSS", "HTTPS"};
     private static final String AUDIO_TRACK_ID = "WebRtcServiceTrackId";
 
-    private final AWSKinesisVideoClient awsKinesisVideoClient;
     protected PeerConnectionFactory peerConnectionFactory;
     protected String region;
     protected AudioManager audioManager;
     protected int originalAudioMode;
     protected boolean originalSpeakerphoneOn;
     protected EglBase rootEglBase;
-
-    private final Map<ChannelDescription, ChannelDetails> channels = new ConcurrentHashMap<>();
     private Optional<BroadcastClientConnection> maybeBroadcastClient = Optional.empty();
     private final Map<String, ListenerClientConnection> listenerClients = new ConcurrentHashMap<>();
     private Consumer<ServiceStateChange> stateChangeCallback;
 
     private boolean broadcastRunning;
     private final AudioTrack audioTrack;
-    private final AWSCredentials creds;
 
     private String username;
     private final List<String> remoteUsernames = new ArrayList<>();
@@ -85,49 +57,27 @@ public class WebRtcService {
 
     private final Map<ChannelDescription, LocalDateTime> lastConnectedTime = new ConcurrentHashMap<>();
 
+    private final AwsManager awsManager;
+
     public WebRtcService(
         Context context,
         AudioManager audioManager,
         Consumer<ServiceStateChange> stateChangeCallBack
     ) throws Exception {
-        this.creds = AWSMobileClient.getInstance().getCredentials();
-        this.region = getRegion();
         this.audioManager = audioManager;
-        originalAudioMode = audioManager.getMode();
-        originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
+        this.originalAudioMode = audioManager.getMode();
+        this.originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
         this.rootEglBase = EglBase.create();
         this.stateChangeCallback = stateChangeCallBack;
+        this.peerConnectionFactory = PeerConnectionFactoryBuilder.build(context, rootEglBase);
+        this.audioTrack = getAudioTrack();
 
         try {
-            awsKinesisVideoClient = getAwsKinesisVideoClient(region);
+            AWSCredentials credentials = AWSMobileClient.getInstance().getCredentials();
+            awsManager = new AwsManager(credentials, region);
         } catch (Exception e) {
-            // TODO: Better exceptions
-            throw new Exception("Create client failed with " + e.getMessage());
+            throw new AWSKinesisVideoClientCreationException(e);
         }
-
-        PeerConnectionFactory.initialize(
-            PeerConnectionFactory
-                .InitializationOptions
-                .builder(context)
-                .createInitializationOptions()
-        );
-
-        // codecs are mandatory even if we aren't using them.
-        final VideoDecoderFactory vdf = new DefaultVideoDecoderFactory(rootEglBase.getEglBaseContext());
-        final VideoEncoderFactory vef = new DefaultVideoEncoderFactory(rootEglBase.getEglBaseContext(), true, true);
-
-        peerConnectionFactory = PeerConnectionFactory.builder()
-            .setVideoDecoderFactory(vdf)
-            .setVideoEncoderFactory(vef)
-            .setAudioDeviceModule(JavaAudioDeviceModule.builder(context).createAudioDeviceModule())
-            .createPeerConnectionFactory();
-
-        this.audioManager = audioManager;
-        originalAudioMode = audioManager.getMode();
-        originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
-
-        AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-        audioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
 
         /*
         Timer healthMonitor = new Timer();
@@ -137,143 +87,6 @@ public class WebRtcService {
                checkConnectionHealth();
            }
         }, 0, 10000);*/
-    }
-
-    /**
-     * Parse awsconfiguration.json and extract the region from it.
-     *
-     * @return The region in String form. {@code null} if not.
-     * @throws IllegalStateException if awsconfiguration.json is not properly configured.
-     */
-    private String getRegion() {
-        final AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
-        if (configuration == null) {
-            throw new IllegalStateException("awsconfiguration.json has not been properly configured!");
-        }
-
-        final JSONObject jsonObject = configuration.optJsonObject("CredentialsProvider");
-
-        String region = null;
-        try {
-            region = (String) ((JSONObject) (((JSONObject) jsonObject.get("CognitoIdentity")).get("Default"))).get("Region");
-        } catch (final JSONException e) {
-            Log.e(TAG, "Got exception when extracting region from cognito setting.", e);
-        }
-        return region;
-    }
-
-    private ChannelDetails getChannelDetails(String region, String channelName, ChannelRole role) throws Exception {
-        final ChannelDescription channelDescription = new ChannelDescription(region, channelName, role);
-        if (channels.containsKey(channelDescription)) {
-            return channels.get(channelDescription);
-        }
-
-        final String channelArn = getChannelArn(channelName, role);
-        final List<ResourceEndpointListItem> endpointList = getEndPointList(channelArn, role);
-        final List<IceServer> iceServerList = getIceServerList(region, channelArn, role, endpointList);
-        ChannelDetails channelDetails = new ChannelDetails(channelDescription, channelArn, endpointList, iceServerList);
-        channels.put(channelDescription, channelDetails);
-
-        return channelDetails;
-    }
-
-    private String getChannelArn(String channelName, ChannelRole role) throws Exception {
-        // Use the Kinesis Video Client to call DescribeSignalingChannel API.
-        //  If that fails with ResourceNotFoundException, the channel does not exist.
-        //  If we are connecting as Master, if it doesn't exist, we attempt to create
-        //  it by calling CreateSignalingChannel API.
-        try {
-            final DescribeSignalingChannelResult describeSignalingChannelResult = awsKinesisVideoClient.describeSignalingChannel(
-                new DescribeSignalingChannelRequest()
-                        .withChannelName(channelName));
-
-            Log.i(TAG, "Channel ARN is " + describeSignalingChannelResult.getChannelInfo().getChannelARN());
-            return describeSignalingChannelResult.getChannelInfo().getChannelARN();
-        } catch (final ResourceNotFoundException e) {
-            if (role.equals(ChannelRole.MASTER)) {
-                try {
-                    CreateSignalingChannelResult createSignalingChannelResult = awsKinesisVideoClient.createSignalingChannel(
-                        new CreateSignalingChannelRequest()
-                            .withChannelName(channelName));
-
-                    return createSignalingChannelResult.getChannelARN();
-                } catch (Exception ex) {
-                    throw new Exception("Create Signaling Channel failed with Exception " + ex.getMessage());
-                }
-            } else {
-                throw new Exception("Signaling Channel " + channelName + " doesn't exist!");
-            }
-        } catch (Exception ex) {
-            throw new Exception("Describe Signaling Channel failed with Exception " + ex);
-        }
-    }
-
-    private List<ResourceEndpointListItem> getEndPointList(String channelArn, ChannelRole role) throws Exception {
-        //  Use the Kinesis Video Client to call GetSignalingChannelEndpoint.
-        //  Each signaling channel is assigned an HTTPS and WSS endpoint to connect
-        //  to for data-plane operations, which we fetch using the GetSignalingChannelEndpoint API,
-        //  and a WEBRTC endpoint to for storage data-plane operations.
-        //  Attempting to obtain the WEBRTC endpoint if the signaling channel is not configured
-        //  will result in an InvalidArgumentException.
-        try {
-            final GetSignalingChannelEndpointResult getSignalingChannelEndpointResult = awsKinesisVideoClient.getSignalingChannelEndpoint(
-                new GetSignalingChannelEndpointRequest()
-                    .withChannelARN(channelArn)
-                    .withSingleMasterChannelEndpointConfiguration(
-                        new SingleMasterChannelEndpointConfiguration()
-                            .withProtocols(SUPPORTED_PROTOCOLS)
-                            .withRole(role)));
-            Log.i(TAG, "Endpoints " + getSignalingChannelEndpointResult.toString());
-            return getSignalingChannelEndpointResult.getResourceEndpointList();
-        } catch (Exception e) {
-            throw new Exception("Get Signaling Endpoint failed with Exception " + e.getMessage());
-        }
-    }
-
-    private List<IceServer> getIceServerList(
-        String region,
-        String channelArn,
-        ChannelRole role,
-        List<ResourceEndpointListItem> endpointList
-    ) throws Exception {
-        String dataEndpoint = null;
-        for (ResourceEndpointListItem endpoint : endpointList) {
-            if (endpoint.getProtocol().equals("HTTPS")) {
-                dataEndpoint = endpoint.getResourceEndpoint();
-            }
-        }
-
-        //  Construct the Kinesis Video Signaling Client. The HTTPS endpoint from the
-        //  GetSignalingChannelEndpoint response above is used with this client. This
-        //  client is just used for getting ICE servers, not for actual signaling.
-        //  Call GetIceServerConfig in order to obtain TURN ICE server info.
-        //  Note: the STUN endpoint will be `stun:stun.kinesisvideo.${region}.amazonaws.com:443`
-        try {
-            final AWSKinesisVideoSignalingClient awsKinesisVideoSignalingClient = getAwsKinesisVideoSignalingClient(region, dataEndpoint);
-            GetIceServerConfigResult getIceServerConfigResult = awsKinesisVideoSignalingClient.getIceServerConfig(
-                new GetIceServerConfigRequest().withChannelARN(channelArn).withClientId(role.name()));
-            return getIceServerConfigResult.getIceServerList();
-        } catch (Exception e) {
-            throw new Exception("Get Ice Server Config failed with Exception " + e.getMessage());
-        }
-    }
-
-    private AWSKinesisVideoClient getAwsKinesisVideoClient(final String region) {
-        final AWSKinesisVideoClient awsKinesisVideoClient = new AWSKinesisVideoClient(creds);
-
-        awsKinesisVideoClient.setRegion(Region.getRegion(region));
-        awsKinesisVideoClient.setSignerRegionOverride(region);
-        awsKinesisVideoClient.setServiceNameIntern("kinesisvideo");
-        return awsKinesisVideoClient;
-    }
-
-    private AWSKinesisVideoSignalingClient getAwsKinesisVideoSignalingClient(final String region, final String endpoint) {
-        final AWSKinesisVideoSignalingClient client = new AWSKinesisVideoSignalingClient(creds);
-        client.setRegion(Region.getRegion(region));
-        client.setSignerRegionOverride(region);
-        client.setServiceNameIntern("kinesisvideo");
-        client.setEndpoint(endpoint);
-        return client;
     }
 
     public void onDestroy() {
@@ -290,11 +103,6 @@ public class WebRtcService {
 
     public void setUsername(String username) { this.username = username; }
 
-    private void resetAudioManager() {
-        audioManager.setMode(originalAudioMode);
-        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
-    }
-
     public boolean broadcastRunning() {
         return broadcastRunning;
     }
@@ -309,7 +117,7 @@ public class WebRtcService {
 
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = getChannelDetails(region, username, ChannelRole.MASTER);
+            channelDetails = awsManager.getChannelDetails(region, username, ChannelRole.MASTER);
         } catch (Exception e) {
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
@@ -323,7 +131,7 @@ public class WebRtcService {
                     stateChangeObserverAndForwarder
                 )
             );
-            maybeBroadcastClient.get().initWsConnection(creds);
+            maybeBroadcastClient.get().initWsConnection(awsManager.getCredentials());
             audioTrack.setEnabled(!mute);
         } catch (Exception e) {
             broadcastRunning = false;
@@ -370,6 +178,16 @@ public class WebRtcService {
         }
     }
 
+    private AudioTrack getAudioTrack() {
+        AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
+        return peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
+    }
+
+    private void resetAudioManager() {
+        audioManager.setMode(originalAudioMode);
+        audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
+    }
+
     private void startListener(String remoteUsername) {
         if (StringUtils.isAnyBlank(remoteUsername, username)) {
             return;
@@ -377,7 +195,7 @@ public class WebRtcService {
 
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = getChannelDetails(region, remoteUsername, ChannelRole.VIEWER);
+            channelDetails = awsManager.getChannelDetails(region, remoteUsername, ChannelRole.VIEWER);
         } catch (Exception e) {
             stateChangeCallback.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
@@ -390,7 +208,7 @@ public class WebRtcService {
                 stateChangeObserverAndForwarder
             );
 
-            connection.initWsConnection(creds);
+            connection.initWsConnection(awsManager.getCredentials());
             listenerClients.put(remoteUsername, connection);
         } catch (Exception e) {
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));

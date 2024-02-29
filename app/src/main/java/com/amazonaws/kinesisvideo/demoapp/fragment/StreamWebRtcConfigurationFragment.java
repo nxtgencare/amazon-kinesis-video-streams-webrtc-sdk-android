@@ -19,6 +19,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -49,7 +50,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private TextView broadcastStatus;
     private EditText remoteUsername;
     private EditText username;
-    private Switch mute;
+    private SwitchCompat mute;
 
     private PeerAdapter broadcastAdapter;
     private PeerAdapter listenerAdapter;
@@ -171,7 +172,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             } else {
                 broadcastStatus.setText(R.string.not_broadcasting);
                 username.setEnabled(true);
-                webRtcService.disconnect();
             }
 
             startBroadcastButton.setText(webRtcService.broadcastRunning() ? R.string.stop : R.string.start_broadcast);
