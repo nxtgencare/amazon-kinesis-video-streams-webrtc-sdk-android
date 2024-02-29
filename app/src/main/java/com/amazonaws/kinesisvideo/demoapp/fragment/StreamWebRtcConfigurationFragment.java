@@ -159,12 +159,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
     private void webRtcServiceStateChange(ServiceStateChange webRtcServiceStateChange) {
         runOnUiThread(() -> {
-            try {
-                // TODO: This crashes some phones and we don't need it, so replace it with a UI component.
-                Toast.makeText(getContext(), webRtcServiceStateChange.toString(), Toast.LENGTH_LONG).show();
-            } catch (Exception e) {
-                Log.e(TAG, String.format("Toast error: %s", e.getMessage()), e);
-            }
+            Log.d(TAG, "Toast: " + webRtcServiceStateChange.toString());
 
             if (webRtcService.broadcastRunning()) {
                 broadcastStatus.setText(String.format("Broadcasting on %s", webRtcService.getBroadcastChannelName()));
