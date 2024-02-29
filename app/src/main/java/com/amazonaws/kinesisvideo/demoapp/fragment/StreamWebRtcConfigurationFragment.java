@@ -14,6 +14,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -48,6 +49,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private TextView broadcastStatus;
     private EditText remoteUsername;
     private EditText username;
+    private Switch mute;
 
     private PeerAdapter broadcastAdapter;
     private PeerAdapter listenerAdapter;
@@ -141,6 +143,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             Thread thread = new Thread(() -> webRtcService.addRemoteUserToConference(getRemoteUsername()));
             thread.start();
         });
+
+        mute.setOnCheckedChangeListener((button, isChecked) -> webRtcService.setMute(isChecked));
     }
 
     private void associateComponents() {
@@ -151,6 +155,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         addRemoteUsernameButton = view.findViewById(R.id.add_username);
         remoteUsername = view.findViewById(R.id.remote_broadcast_channel_name);
         username = view.findViewById(R.id.username);
+        mute = view.findViewById(R.id.mute);
     }
 
     private String getRemoteUsername() {

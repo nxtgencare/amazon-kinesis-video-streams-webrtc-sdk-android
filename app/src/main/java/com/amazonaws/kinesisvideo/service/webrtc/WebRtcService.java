@@ -46,6 +46,7 @@ import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -80,6 +81,9 @@ public class WebRtcService {
 
     private String username;
     private final List<String> remoteUsernames = new ArrayList<>();
+    private boolean mute = true;
+
+    private final Map<ChannelDescription, LocalDateTime> lastConnectedTime = new ConcurrentHashMap<>();
 
     public WebRtcService(
         Context context,
@@ -124,6 +128,15 @@ public class WebRtcService {
 
         AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
         audioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
+
+        /*
+        Timer healthMonitor = new Timer();
+        healthMonitor.schedule(new TimerTask() {
+           @Override
+           public void run() {
+               checkConnectionHealth();
+           }
+        }, 0, 10000);*/
     }
 
     /**
@@ -311,7 +324,7 @@ public class WebRtcService {
                 )
             );
             maybeBroadcastClient.get().initWsConnection(creds);
-            audioTrack.setEnabled(true);
+            audioTrack.setEnabled(!mute);
         } catch (Exception e) {
             broadcastRunning = false;
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
@@ -385,26 +398,30 @@ public class WebRtcService {
     }
 
     private final Consumer<ServiceStateChange> stateChangeObserverAndForwarder = webRtcServiceStateChange -> {
-        if (
-            webRtcServiceStateChange.getChannelDetails() != null &&
-            webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER
-        ) {
-            broadcastRunning = maybeBroadcastClient.map(AbstractClientConnection::isValidClient).orElse(false);
-        }
+        ChannelDetails channelDetails = webRtcServiceStateChange.getChannelDetails();
+        if (channelDetails != null) {
+            if (channelDetails.getRole() == ChannelRole.MASTER) {
+                broadcastRunning = maybeBroadcastClient.map(AbstractClientConnection::isValidClient).orElse(false);
+            }
 
-        if (
-            broadcastRunning &&
-            webRtcServiceStateChange.getChannelDetails() != null &&
-            webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.VIEWER &&
-            remoteUsernames.contains(webRtcServiceStateChange.getChannelDetails().getChannelName()) &&
-            Arrays.asList(
-                PeerConnection.IceConnectionState.FAILED,
-                PeerConnection.IceConnectionState.CLOSED,
-                PeerConnection.IceConnectionState.DISCONNECTED
-            ).contains(webRtcServiceStateChange.getIceConnectionState())
-        ) {
-            // Try to reconnect
-            startListener(webRtcServiceStateChange.getChannelDetails().getChannelName());
+            if (broadcastRunning &&
+                channelDetails.getRole() == ChannelRole.VIEWER &&
+                remoteUsernames.contains(channelDetails.getChannelName()) &&
+                Arrays.asList(
+                        PeerConnection.IceConnectionState.FAILED,
+                        PeerConnection.IceConnectionState.CLOSED,
+                        PeerConnection.IceConnectionState.DISCONNECTED
+                ).contains(webRtcServiceStateChange.getIceConnectionState())
+            ) {
+                // Try to reconnect
+                startListener(channelDetails.getChannelName());
+            }
+
+            if (webRtcServiceStateChange.getIceConnectionState() == PeerConnection.IceConnectionState.CONNECTED ||
+                !lastConnectedTime.containsKey(channelDetails.getChannelDescription())
+            ) {
+                lastConnectedTime.put(channelDetails.getChannelDescription(), LocalDateTime.now());
+            }
         }
 
         stateChangeCallback.accept(webRtcServiceStateChange);
@@ -425,5 +442,10 @@ public class WebRtcService {
             .values().stream()
                 .flatMap(e -> e.getPeerStatus().stream())
                 .collect(Collectors.toList());
+    }
+
+    public void setMute(boolean mute) {
+        this.mute = mute;
+        audioTrack.setEnabled(!mute);
     }
 }

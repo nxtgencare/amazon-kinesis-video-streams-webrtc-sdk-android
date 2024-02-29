@@ -42,17 +42,33 @@
             android:layout_height="55dp"
             android:orientation="vertical">
 
-            <Button
-                android:id="@+id/start_broadcast"
-                android:layout_width="169dp"
-                android:layout_height="55dp"
-                android:layout_gravity="center"
-                android:layout_margin="10dp"
-                android:background="@drawable/button_selector"
-                android:enabled="true"
-                android:padding="10dp"
-                android:text="@string/start_broadcast"
-                tools:ignore="HardcodedText" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/start_broadcast"
+                    android:layout_width="169dp"
+                    android:layout_height="55dp"
+                    android:layout_gravity="center"
+                    android:layout_margin="10dp"
+                    android:background="@drawable/button_selector"
+                    android:enabled="true"
+                    android:padding="10dp"
+                    android:paddingRight="100dp"
+                    android:text="@string/start_broadcast"
+                    tools:ignore="HardcodedText" />
+
+                <Switch
+                    android:id="@+id/mute"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:checked="true"
+                    android:text="Mute" />
+            </LinearLayout>
+
         </LinearLayout>
 
 
@@ -60,6 +76,7 @@
             android:id="@+id/broadcast_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:enabled="true"
             android:text="@string/not_broadcasting"
             android:textAlignment="center"
             android:textStyle="italic" />

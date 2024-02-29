@@ -61,13 +61,14 @@ public class ChannelDetails {
     public String getRegion() { return channelDescription.getRegion(); }
     public ChannelRole getRole() { return channelDescription.getRole(); }
     public String getChannelArn() { return channelArn; }
-    public List<ResourceEndpointListItem> getEndpointList() { return endpointList; }
-    public List<IceServer> getIceServerList() { return iceServerList; }
     public List<PeerConnection.IceServer> getPeerIceServers() { return peerIceServers; }
     public String getWssEndpoint() { return wssEndpoint; }
+    public ChannelDescription getChannelDescription() { return channelDescription; }
 
     @Override
     public String toString() {
         return String.format("%s (%s)", channelDescription.getChannelName(), channelDescription.getRole());
     }
+
+
 }
