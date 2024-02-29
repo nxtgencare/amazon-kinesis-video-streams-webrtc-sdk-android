@@ -46,15 +46,10 @@ public class ServiceStateChange {
         return new ServiceStateChange(channelDetails);
     }
 
-    public static ServiceStateChange remove(ChannelDetails channelDetails) {
-        return new ServiceStateChange(channelDetails);
-    }
-
     public PeerConnection.IceConnectionState getIceConnectionState() {
         return iceConnectionState == null ? PeerConnection.IceConnectionState.CLOSED : iceConnectionState;
     }
     public ChannelDetails getChannelDetails() { return channelDetails; }
-    public boolean isWaitingForConnection() { return waitingForConnection; }
 
     @Override
     public String toString() {
