@@ -6,7 +6,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.amazonaws.kinesisvideo.service.webrtc.connection.ClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
 import com.amazonaws.kinesisvideo.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;
@@ -43,7 +43,7 @@ class WebSocketClient {
     WebSocketClient(
         final String uri,
         final ClientManager clientManager,
-        final ClientConnection signalingListener,
+        final AbstractClientConnection signalingListener,
         final ExecutorService executorService
     ) {
 

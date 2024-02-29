@@ -7,11 +7,12 @@ import android.util.Log;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.BroadcastClientConnection;
-import com.amazonaws.kinesisvideo.service.webrtc.connection.ClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.ListenerClientConnection;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.ChannelDetailsException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.mobile.client.AWSMobileClient;
 import com.amazonaws.mobile.config.AWSConfiguration;
@@ -305,8 +306,8 @@ public class WebRtcService {
             rootEglBase = null;
         }
 
-        maybeBroadcastClient.ifPresent(ClientConnection::onDestroy);
-        listenerClients.values().forEach(ClientConnection::onDestroy);
+        maybeBroadcastClient.ifPresent(AbstractClientConnection::onDestroy);
+        listenerClients.values().forEach(AbstractClientConnection::onDestroy);
     }
 
     public void setUsername(String username) { this.username = username; }
@@ -377,7 +378,7 @@ public class WebRtcService {
 
     public void removeRemoteUserFromConference(String remoteUsername) {
         remoteUsernames.remove(remoteUsername);
-        Optional.ofNullable(listenerClients.get(remoteUsername)).ifPresent(ClientConnection::onDestroy);
+        Optional.ofNullable(listenerClients.get(remoteUsername)).ifPresent(AbstractClientConnection::onDestroy);
         listenerClients.remove(remoteUsername);
     }
 
@@ -423,7 +424,7 @@ public class WebRtcService {
             webRtcServiceStateChange.getChannelDetails() != null &&
             webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.MASTER
         ) {
-            broadcastRunning = maybeBroadcastClient.map(ClientConnection::isValidClient).orElse(false);
+            broadcastRunning = maybeBroadcastClient.map(AbstractClientConnection::isValidClient).orElse(false);
         }
 
         if (

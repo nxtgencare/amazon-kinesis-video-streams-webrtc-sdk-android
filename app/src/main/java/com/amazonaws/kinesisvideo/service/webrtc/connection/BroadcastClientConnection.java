@@ -3,7 +3,7 @@ package com.amazonaws.kinesisvideo.service.webrtc.connection;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
-import com.amazonaws.kinesisvideo.service.webrtc.ServiceStateChange;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class BroadcastClientConnection extends ClientConnection {
+public class BroadcastClientConnection extends AbstractClientConnection {
     private static final String TAG = "BroadcastClientConnection";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "BroadcastClientMediaStream";
     private final AudioTrack localAudioTrack;

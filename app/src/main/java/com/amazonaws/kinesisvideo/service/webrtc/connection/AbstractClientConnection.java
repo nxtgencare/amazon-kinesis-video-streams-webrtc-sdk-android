@@ -5,7 +5,7 @@ import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
-import com.amazonaws.kinesisvideo.service.webrtc.ServiceStateChange;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.WebRtcService;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
@@ -35,7 +35,7 @@ import java.util.function.Consumer;
 
 import javax.websocket.MessageHandler;
 
-public abstract class ClientConnection implements MessageHandler.Whole<String> {
+public abstract class AbstractClientConnection implements MessageHandler.Whole<String> {
 
     private final Gson gson = new Gson();
 
@@ -58,7 +58,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
      */
     private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
 
-    public ClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<ServiceStateChange> stateChangeCallback) {
+    public AbstractClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<ServiceStateChange> stateChangeCallback) {
         this.peerConnectionFactory = peerConnectionFactory;
         this.channelDetails = channelDetails;
         this.stateChangeCallback = stateChangeCallback;
@@ -250,7 +250,7 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
                 super.onIceCandidate(iceCandidate);
                 final Message message = createIceCandidateMessage(recipientClientId, iceCandidate);
                 Log.d(getTag(), "Sending IceCandidate to remote peer " + iceCandidate);
-                if (client != null) {
+                if (isValidClient()) {
                     client.sendIceCandidate(message);  /* Send to Peer */
                 }
             }
@@ -303,10 +303,11 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
     public void onDestroy() {
         peerConnectionFoundMap.values().forEach(PeerConnection::close);
 
-        if (client != null) {
+        if (isValidClient()) {
             client.disconnect();
-            client = null;
         }
+
+        client = null;
         peerConnectionFoundMap.clear();
         pendingIceCandidatesMap.clear();
     }
@@ -319,8 +320,4 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
 
     public abstract List<PeerManager> getPeerStatus();
 
-    protected void removePeer(String peerConnectionKey) {
-        peerConnectionFoundMap.remove(peerConnectionKey);
-        stateChangeCallback.accept(ServiceStateChange.remove(channelDetails));
-    }
 }
