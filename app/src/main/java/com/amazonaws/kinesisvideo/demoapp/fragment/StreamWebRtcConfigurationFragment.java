@@ -25,13 +25,22 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.kinesisvideo.common.logging.LogLevel;
+import com.amazonaws.kinesisvideo.common.logging.OutputChannel;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.service.webrtc.WebRtcService;
 import com.amazonaws.kinesisvideo.service.webrtc.ServiceStateChange;
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobile.config.AWSConfiguration;
+import com.amazonaws.mobileconnectors.kinesisvideo.util.AndroidLogOutputChannel;
 import com.amazonaws.util.StringUtils;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +67,6 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private final List<PeerManager> remoteListeners = new ArrayList<>();
     private final List<PeerManager> remoteBroadcasts = new ArrayList<>();
 
-    private final AtomicReference<AWSCredentials> creds = new AtomicReference<>();
     private View view;
 
     public static StreamWebRtcConfigurationFragment newInstance() {
@@ -84,12 +92,11 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         this.view = view;
 
-        runOnUiThread(() -> creds.set(KinesisVideoWebRtcDemoApp.getCredentialsProvider().getCredentials()));
         getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         AudioManager audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
 
         try {
-            webRtcService = new WebRtcService(getActivity(), creds.get(),"ca-central-1", audioManager, this::webRtcServiceStateChange);
+            webRtcService = new WebRtcService(getActivity(), audioManager, this::webRtcServiceStateChange);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

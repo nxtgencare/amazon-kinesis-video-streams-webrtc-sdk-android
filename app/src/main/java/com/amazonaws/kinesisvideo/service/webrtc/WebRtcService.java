@@ -13,6 +13,8 @@ import com.amazonaws.kinesisvideo.service.webrtc.exception.ChannelDetailsExcepti
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
+import com.amazonaws.mobile.client.AWSMobileClient;
+import com.amazonaws.mobile.config.AWSConfiguration;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
@@ -31,6 +33,8 @@ import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResu
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
 import org.apache.commons.lang3.StringUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
@@ -82,18 +86,16 @@ public class WebRtcService {
 
     public WebRtcService(
         Context context,
-        AWSCredentials creds,
-        String region,
         AudioManager audioManager,
         Consumer<ServiceStateChange> stateChangeCallBack
     ) throws Exception {
-        this.region = region;
+        this.creds = AWSMobileClient.getInstance().getCredentials();
+        this.region = getRegion();
         this.audioManager = audioManager;
         originalAudioMode = audioManager.getMode();
         originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
         this.rootEglBase = EglBase.create();
         this.stateChangeCallback = stateChangeCallBack;
-        this.creds = creds;
 
         try {
             awsKinesisVideoClient = getAwsKinesisVideoClient(region);
@@ -125,6 +127,29 @@ public class WebRtcService {
 
         AudioSource audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
         audioTrack = peerConnectionFactory.createAudioTrack(AUDIO_TRACK_ID, audioSource);
+    }
+
+    /**
+     * Parse awsconfiguration.json and extract the region from it.
+     *
+     * @return The region in String form. {@code null} if not.
+     * @throws IllegalStateException if awsconfiguration.json is not properly configured.
+     */
+    public String getRegion() {
+        final AWSConfiguration configuration = AWSMobileClient.getInstance().getConfiguration();
+        if (configuration == null) {
+            throw new IllegalStateException("awsconfiguration.json has not been properly configured!");
+        }
+
+        final JSONObject jsonObject = configuration.optJsonObject("CredentialsProvider");
+
+        String region = null;
+        try {
+            region = (String) ((JSONObject) (((JSONObject) jsonObject.get("CognitoIdentity")).get("Default"))).get("Region");
+        } catch (final JSONException e) {
+            Log.e(TAG, "Got exception when extracting region from cognito setting.", e);
+        }
+        return region;
     }
 
     /**
