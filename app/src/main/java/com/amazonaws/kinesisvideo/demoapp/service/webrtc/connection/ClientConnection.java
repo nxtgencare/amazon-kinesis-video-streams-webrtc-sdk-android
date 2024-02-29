@@ -250,7 +250,9 @@ public abstract class ClientConnection implements MessageHandler.Whole<String> {
                 super.onIceCandidate(iceCandidate);
                 final Message message = createIceCandidateMessage(recipientClientId, iceCandidate);
                 Log.d(getTag(), "Sending IceCandidate to remote peer " + iceCandidate);
-                client.sendIceCandidate(message);  /* Send to Peer */
+                if (client != null) {
+                    client.sendIceCandidate(message);  /* Send to Peer */
+                }
             }
 
             @Override

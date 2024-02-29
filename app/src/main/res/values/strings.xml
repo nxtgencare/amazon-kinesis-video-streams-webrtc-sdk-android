@@ -11,7 +11,7 @@
     <string name="navigation_drawer_close">Close navigation drawer</string>
     <string name="data_channel_notification">KVS WebRTC Data Channel Notification Channel</string>
     <string name="data_channel_notification_description">This channel shows all messages coming from WebRTC.</string>
-    <string name="add_listener">Add Listener</string>
+    <string name="add_remote_user">Add Remote User</string>
     <string name="start_broadcast">Start Broadcast</string>
     <string name="stop">Stop</string>
     <string name="connecting">Connecting</string>

@@ -14,17 +14,21 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.PeerConnection;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.ViewHolder> {
-    private List<PeerManager> peers;
+    private final List<PeerManager> peers;
+    private final Consumer<String> removePeer;
     private Context context;
 
-    public PeerAdapter(List<PeerManager> peers) {
+    public PeerAdapter(List<PeerManager> peers, Consumer<String> removePeer) {
         this.peers = peers;
+        this.removePeer = removePeer;
     }
 
     @NonNull
@@ -45,10 +49,13 @@ public class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.ViewHolder> {
         PeerManager peer = peers.get(position);
         holder.name.setText(peer.getName());
         holder.status.setText(peer.getState().toString());
-        holder.statusIcon.setCardBackgroundColor(
-            ContextCompat.getColor(context, getColor(peer.getState()))
-        );
-        holder.end.setOnClickListener(evt -> peer.endPeerConnection());
+        holder.statusIcon
+            .setCardBackgroundColor(ContextCompat.getColor(context, getColor(peer.getState())));
+        if (peer.getLocalRole() == ChannelRole.MASTER) {
+            holder.remove.setVisibility(View.INVISIBLE);
+        } else {
+            holder.remove.setOnClickListener(e -> removePeer.accept(peer.getName()));
+        }
     }
 
     private int getColor(PeerConnection.PeerConnectionState state) {
@@ -77,15 +84,14 @@ public class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.ViewHolder> {
         public TextView name;
         public CardView statusIcon;
         public TextView status;
-        public Button end;
+        public Button remove;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-
             name = itemView.findViewById(R.id.name);
             statusIcon = itemView.findViewById(R.id.status_icon);
             status = itemView.findViewById(R.id.status);
-            end = itemView.findViewById(R.id.end);
+            remove = itemView.findViewById(R.id.remove);
         }
     }
 }

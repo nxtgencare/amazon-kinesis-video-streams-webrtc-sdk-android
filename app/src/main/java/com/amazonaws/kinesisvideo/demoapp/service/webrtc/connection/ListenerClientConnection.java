@@ -9,6 +9,7 @@ import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
@@ -98,9 +99,7 @@ public class ListenerClientConnection extends ClientConnection {
         return peerConnectionFoundMap
             .values()
             .stream()
-            .map(p -> new PeerManager(
-                channelDetails.getChannelName(), p, () -> removePeer(clientId))
-            )
+            .map(p -> new PeerManager(channelDetails.getChannelName(), ChannelRole.VIEWER, p))
             .collect(Collectors.toList());
     }
 }

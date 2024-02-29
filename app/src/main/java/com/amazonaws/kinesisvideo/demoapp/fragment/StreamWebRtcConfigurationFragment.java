@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,6 +31,7 @@ import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
 import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.demoapp.service.webrtc.WebRtcService;
 import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ServiceStateChange;
+import com.amazonaws.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,13 +43,14 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
     private static final String TAG = "StreamWebRtcConfigurationFragment";
     private WebRtcService webRtcService;
     private Button startBroadcastButton;
-    private Button addRemoteBroadcastListenerButton;
+    private Button addRemoteUsernameButton;
 
     private RecyclerView connectedListeners;
     private RecyclerView connectedBroadcasts;
 
     private TextView broadcastStatus;
-    private EditText remoteBroadcastChannelName;
+    private EditText remoteUsername;
+    private EditText username;
 
     private PeerAdapter broadcastAdapter;
     private PeerAdapter listenerAdapter;
@@ -98,11 +102,26 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
         associateComponents();
 
+        username.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int start, int count, int after) {}
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                String username = editable.toString();
+                webRtcService.setUsername(username);
+                startBroadcastButton.setEnabled(!StringUtils.isBlank(username));
+            }
+        });
+
         connectedListeners.setLayoutManager(viewersLayoutManager);
         connectedBroadcasts.setLayoutManager(mastersLayoutManager);
 
-        listenerAdapter = new PeerAdapter(remoteListeners);
-        broadcastAdapter = new PeerAdapter(remoteBroadcasts);
+        broadcastAdapter = new PeerAdapter(remoteBroadcasts, p -> webRtcService.removeRemoteUserFromConference(p));
+        listenerAdapter = new PeerAdapter(remoteListeners, p -> {}); // Broadcast can't remove anything
 
         connectedListeners.setAdapter(listenerAdapter);
         connectedBroadcasts.setAdapter(broadcastAdapter);
@@ -111,19 +130,20 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
             runOnUiThread(() -> {
                 startBroadcastButton.setText(R.string.connecting);
                 startBroadcastButton.setEnabled(false);
+                username.setEnabled(false);
             });
             Thread thread = new Thread(() -> {
                 if (webRtcService.broadcastRunning()) {
                     webRtcService.stopBroadcast();
                 } else {
-                    webRtcService.startBroadcast(getBroadcastChannelName());
+                    webRtcService.startBroadcast();
                 }
             });
             thread.start();
         });
 
-        addRemoteBroadcastListenerButton.setOnClickListener(event -> {
-            Thread thread = new Thread(() -> webRtcService.startListener(getRemoteBroadcastChannelName(), getUsername()));
+        addRemoteUsernameButton.setOnClickListener(event -> {
+            Thread thread = new Thread(() -> webRtcService.addRemoteUserToConference(getRemoteUsername()));
             thread.start();
         });
     }
@@ -133,26 +153,19 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         connectedBroadcasts = view.findViewById(R.id.connected_masters);
         startBroadcastButton = view.findViewById(R.id.start_broadcast);
         broadcastStatus = view.findViewById(R.id.broadcast_status);
-        addRemoteBroadcastListenerButton = view.findViewById(R.id.add_remote_broadcast_listener);
-        remoteBroadcastChannelName = view.findViewById(R.id.remote_broadcast_channel_name);
+        addRemoteUsernameButton = view.findViewById(R.id.add_username);
+        remoteUsername = view.findViewById(R.id.remote_broadcast_channel_name);
+        username = view.findViewById(R.id.username);
     }
 
-    private String getBroadcastChannelName() {
-        return String.format("channel-%s", getUsername());
-    }
-
-    private String getRemoteBroadcastChannelName() {
-        return remoteBroadcastChannelName.getText().toString();
-    }
-
-    private String getUsername() {
-        EditText username = view.findViewById(R.id.username);
-        return username.getText().toString();
+    private String getRemoteUsername() {
+        return remoteUsername.getText().toString();
     }
 
     private void webRtcServiceStateChange(ServiceStateChange webRtcServiceStateChange) {
         runOnUiThread(() -> {
             try {
+                // TODO: This crashes some phones and we don't need it, so replace it with a UI component.
                 Toast.makeText(getContext(), webRtcServiceStateChange.toString(), Toast.LENGTH_LONG).show();
             } catch (Exception e) {
                 Log.e(TAG, String.format("Toast error: %s", e.getMessage()), e);
@@ -162,6 +175,8 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 broadcastStatus.setText(String.format("Broadcasting on %s", webRtcService.getBroadcastChannelName()));
             } else {
                 broadcastStatus.setText(R.string.not_broadcasting);
+                username.setEnabled(true);
+                webRtcService.disconnect();
             }
 
             startBroadcastButton.setText(webRtcService.broadcastRunning() ? R.string.stop : R.string.start_broadcast);

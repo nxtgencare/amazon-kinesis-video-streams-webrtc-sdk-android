@@ -36,12 +36,12 @@
                 android:text="@string/waiting" />
 
             <Button
-                android:id="@+id/end"
+                android:id="@+id/remove"
                 android:layout_width="10dp"
                 android:layout_height="34dp"
                 android:layout_weight="1"
                 android:background="#FF0000"
-                android:text="End"
+                android:text="Remove"
                 android:textSize="10sp" />
 
         </LinearLayout>

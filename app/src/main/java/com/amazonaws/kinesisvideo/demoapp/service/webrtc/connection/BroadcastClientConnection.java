@@ -9,6 +9,7 @@ import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.AudioTrack;
 import org.webrtc.MediaConstraints;
@@ -100,9 +101,12 @@ public class BroadcastClientConnection extends ClientConnection {
                 super.onCreateSuccess(sessionDescription);
                 peerConnection.setLocalDescription(new KinesisVideoSdpObserver(), sessionDescription);
                 final Message answer = Message.createAnswerMessage(sessionDescription, recipientClientId);
-                client.sendSdpAnswer(answer);
-                peerConnectionFoundMap.put(recipientClientId, peerConnection);
-                handlePendingIceCandidates(recipientClientId, peerConnection);
+
+                if (client != null) {
+                    client.sendSdpAnswer(answer);
+                    peerConnectionFoundMap.put(recipientClientId, peerConnection);
+                    handlePendingIceCandidates(recipientClientId, peerConnection);
+                }
             }
 
             @Override
@@ -132,9 +136,13 @@ public class BroadcastClientConnection extends ClientConnection {
         return peerConnectionFoundMap
             .entrySet()
             .stream()
-            .map(e -> new PeerManager(e.getKey(), e.getValue(), () -> removePeer(e.getKey())))
+            .map(e -> new PeerManager(e.getKey(), ChannelRole.MASTER, e.getValue()))
             .collect(Collectors.toList());
     }
 
+
+    public void removePeerConnection(String name) {
+        peerConnectionFoundMap.remove(name);
+    }
 
 }

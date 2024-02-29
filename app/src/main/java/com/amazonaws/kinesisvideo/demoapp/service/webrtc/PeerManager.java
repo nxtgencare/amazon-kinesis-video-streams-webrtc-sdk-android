@@ -1,33 +1,30 @@
 package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
 
-import android.util.Log;
+import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.PeerConnection;
+
+import java.util.Optional;
 
 public class PeerManager {
 
     private final String name;
-    private final PeerConnection peerConnection;
-    private final Runnable cleanup;
+    private final ChannelRole localRole;
+    private final Optional<PeerConnection> peerConnection;
 
-    public PeerManager(String name, PeerConnection peerConnection, Runnable cleanup) {
+    public PeerManager(String name, ChannelRole localRole, PeerConnection peerConnection) {
         this.name = name;
-        this.peerConnection = peerConnection;
-        this.cleanup = cleanup;
+        this.localRole = localRole;
+        this.peerConnection = Optional.ofNullable(peerConnection);
     }
 
     public String getName() { return name; }
-    public PeerConnection.PeerConnectionState getState() {
-        return peerConnection == null ?
-            PeerConnection.PeerConnectionState.FAILED :
-            peerConnection.connectionState();
-    }
-    public void endPeerConnection() {
-        if (peerConnection.iceConnectionState() == PeerConnection.IceConnectionState.CLOSED) {
-            cleanup.run();
-        } else {
-            peerConnection.close();
-        }
-    }
+    public ChannelRole getLocalRole() {return localRole;}
+    public Optional<PeerConnection> getPeerConnection() { return peerConnection; }
 
+    public PeerConnection.PeerConnectionState getState() {
+        return peerConnection
+            .map(PeerConnection::connectionState)
+            .orElse(PeerConnection.PeerConnectionState.FAILED);
+    }
 }

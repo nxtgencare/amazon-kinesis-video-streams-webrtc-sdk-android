@@ -30,18 +30,22 @@ import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigRequ
 import com.amazonaws.services.kinesisvideosignaling.model.GetIceServerConfigResult;
 import com.amazonaws.services.kinesisvideosignaling.model.IceServer;
 
+import org.apache.commons.lang3.StringUtils;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
 import org.webrtc.MediaConstraints;
+import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +76,9 @@ public class WebRtcService {
     private boolean broadcastRunning;
     private final AudioTrack audioTrack;
     private final AWSCredentials creds;
+
+    private String username;
+    private final List<String> remoteUsernames = new ArrayList<>();
 
     public WebRtcService(
         Context context,
@@ -277,6 +284,8 @@ public class WebRtcService {
         listenerClients.values().forEach(ClientConnection::onDestroy);
     }
 
+    public void setUsername(String username) { this.username = username; }
+
     private void resetAudioManager() {
         audioManager.setMode(originalAudioMode);
         audioManager.setSpeakerphoneOn(originalSpeakerphoneOn);
@@ -286,13 +295,17 @@ public class WebRtcService {
         return broadcastRunning;
     }
 
-    public void startBroadcast(String channelName) {
+    public void startBroadcast() {
+        if (StringUtils.isEmpty(username)) {
+            return;
+        }
+
         audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
         audioManager.setSpeakerphoneOn(true);
 
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = getChannelDetails(region, channelName, ChannelRole.MASTER);
+            channelDetails = getChannelDetails(region, username, ChannelRole.MASTER);
         } catch (Exception e) {
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
@@ -312,9 +325,13 @@ public class WebRtcService {
             broadcastRunning = false;
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
         }
+
+        remoteUsernames.forEach(this::startListener);
     }
 
     public void stopBroadcast() {
+        disconnect();
+
         maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
             stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.getChannelDetails()));
@@ -325,10 +342,38 @@ public class WebRtcService {
         maybeBroadcastClient = Optional.empty();
     }
 
-    public void startListener(String channelName, String clientId) {
+    public void addRemoteUserToConference(String remoteUsername) {
+        remoteUsernames.add(remoteUsername);
+
+        if (broadcastRunning) {
+            startListener(remoteUsername);
+        }
+    }
+
+    public void removeRemoteUserFromConference(String remoteUsername) {
+        remoteUsernames.remove(remoteUsername);
+        Optional.ofNullable(listenerClients.get(remoteUsername)).ifPresent(ClientConnection::onDestroy);
+        listenerClients.remove(remoteUsername);
+    }
+
+    public void disconnect() {
+        for (PeerManager peerManager : getListenersConnectedToBroadcast()) {
+            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
+        }
+
+        for (PeerManager peerManager : getRemoteBroadcastsListeningTo()) {
+            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
+        }
+    }
+
+    private void startListener(String remoteUsername) {
+        if (StringUtils.isAnyBlank(remoteUsername, username)) {
+            return;
+        }
+
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = getChannelDetails(region, channelName, ChannelRole.VIEWER);
+            channelDetails = getChannelDetails(region, remoteUsername, ChannelRole.VIEWER);
         } catch (Exception e) {
             stateChangeCallback.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
@@ -337,12 +382,12 @@ public class WebRtcService {
             ListenerClientConnection connection = new ListenerClientConnection(
                 peerConnectionFactory,
                 channelDetails,
-                clientId,
+                username,
                 stateChangeObserverAndForwarder
             );
 
             connection.initWsConnection(creds);
-            listenerClients.put(channelName, connection);
+            listenerClients.put(remoteUsername, connection);
         } catch (Exception e) {
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
         }
@@ -355,6 +400,22 @@ public class WebRtcService {
         ) {
             broadcastRunning = maybeBroadcastClient.map(ClientConnection::isValidClient).orElse(false);
         }
+
+        if (
+            broadcastRunning &&
+            webRtcServiceStateChange.getChannelDetails() != null &&
+            webRtcServiceStateChange.getChannelDetails().getRole() == ChannelRole.VIEWER &&
+            remoteUsernames.contains(webRtcServiceStateChange.getChannelDetails().getChannelName()) &&
+            Arrays.asList(
+                PeerConnection.IceConnectionState.FAILED,
+                PeerConnection.IceConnectionState.CLOSED,
+                PeerConnection.IceConnectionState.DISCONNECTED
+            ).contains(webRtcServiceStateChange.getIceConnectionState())
+        ) {
+            // Try to reconnect
+            startListener(webRtcServiceStateChange.getChannelDetails().getChannelName());
+        }
+
         stateChangeCallback.accept(webRtcServiceStateChange);
     };
 
