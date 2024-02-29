@@ -1,6 +1,6 @@
-package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
+package com.amazonaws.kinesisvideo.service.webrtc;
 
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 
 import org.webrtc.PeerConnection;
 

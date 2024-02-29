@@ -1,10 +1,10 @@
-package com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection;
+package com.amazonaws.kinesisvideo.service.webrtc.connection;
 
 import android.util.Log;
 
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ServiceStateChange;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.service.webrtc.ServiceStateChange;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;

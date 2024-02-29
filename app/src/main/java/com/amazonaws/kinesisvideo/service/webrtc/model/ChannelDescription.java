@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service.webrtc.model;
+package com.amazonaws.kinesisvideo.service.webrtc.model;
 
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 

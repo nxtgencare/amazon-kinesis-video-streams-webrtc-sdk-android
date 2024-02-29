@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.demoapp.service.webrtc;
+package com.amazonaws.kinesisvideo.service.webrtc;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -6,12 +6,12 @@ import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.BroadcastClientConnection;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ClientConnection;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ListenerClientConnection;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.exception.ChannelDetailsException;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDescription;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.BroadcastClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.ClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.ListenerClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.ChannelDetailsException;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.kinesisvideo.AWSKinesisVideoClient;

@@ -6,7 +6,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.connection.ClientConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.connection.ClientConnection;
 import com.amazonaws.kinesisvideo.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;

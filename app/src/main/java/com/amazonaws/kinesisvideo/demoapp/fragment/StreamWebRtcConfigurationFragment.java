@@ -28,9 +28,9 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.demoapp.KinesisVideoWebRtcDemoApp;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.PeerManager;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.WebRtcService;
-import com.amazonaws.kinesisvideo.demoapp.service.webrtc.ServiceStateChange;
+import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.service.webrtc.WebRtcService;
+import com.amazonaws.kinesisvideo.service.webrtc.ServiceStateChange;
 import com.amazonaws.util.StringUtils;
 
 import java.util.ArrayList;
