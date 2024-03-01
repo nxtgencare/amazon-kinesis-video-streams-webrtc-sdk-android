@@ -19,7 +19,7 @@ public class PeerManager {
     }
 
     public String getName() { return name; }
-    public ChannelRole getLocalRole() {return localRole;}
+    public ChannelRole getLocalRole() { return localRole; }
     public Optional<PeerConnection> getPeerConnection() { return peerConnection; }
 
     public PeerConnection.PeerConnectionState getState() {

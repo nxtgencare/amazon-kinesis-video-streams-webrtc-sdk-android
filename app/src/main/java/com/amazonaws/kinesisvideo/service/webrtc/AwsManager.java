@@ -37,13 +37,13 @@ public class AwsManager {
     private final AWSCredentials credentials;
     private final AWSKinesisVideoClient awsKinesisVideoClient;
 
-    public AwsManager(AWSCredentials credentials, String region) {
-        this.region = region;
+    public AwsManager(AWSCredentials credentials) {
+        this.region = AwsUtils.getRegion();
         this.credentials = credentials;
         this.awsKinesisVideoClient = AwsUtils.getAwsKinesisVideoClient(credentials, region);
     }
 
-    public ChannelDetails getChannelDetails(String region, String channelName, ChannelRole role) throws Exception {
+    public ChannelDetails getChannelDetails(String channelName, ChannelRole role) throws Exception {
         final ChannelDescription channelDescription = new ChannelDescription(region, channelName, role);
         if (channels.containsKey(channelDescription)) {
             return channels.get(channelDescription);
@@ -51,7 +51,7 @@ public class AwsManager {
 
         final String channelArn = getChannelArn(channelName, role);
         final List<ResourceEndpointListItem> endpointList = getEndPointList(channelArn, role);
-        final List<IceServer> iceServerList = getIceServerList(region, channelArn, role, endpointList);
+        final List<IceServer> iceServerList = getIceServerList(channelArn, role, endpointList);
         ChannelDetails channelDetails = new ChannelDetails(channelDescription, channelArn, endpointList, iceServerList);
         channels.put(channelDescription, channelDetails);
 
@@ -112,12 +112,8 @@ public class AwsManager {
         }
     }
 
-    private List<IceServer> getIceServerList(
-        String region,
-        String channelArn,
-        ChannelRole role,
-        List<ResourceEndpointListItem> endpointList
-    ) throws Exception {
+    private List<IceServer> getIceServerList(String channelArn, ChannelRole role, List<ResourceEndpointListItem> endpointList)
+            throws Exception {
         String dataEndpoint = null;
         for (ResourceEndpointListItem endpoint : endpointList) {
             if (endpoint.getProtocol().equals("HTTPS")) {

@@ -74,7 +74,7 @@ public class WebRtcService {
 
         try {
             AWSCredentials credentials = AWSMobileClient.getInstance().getCredentials();
-            awsManager = new AwsManager(credentials, region);
+            awsManager = new AwsManager(credentials);
         } catch (Exception e) {
             throw new AWSKinesisVideoClientCreationException(e);
         }
@@ -117,7 +117,7 @@ public class WebRtcService {
 
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = awsManager.getChannelDetails(region, username, ChannelRole.MASTER);
+            channelDetails = awsManager.getChannelDetails(username, ChannelRole.MASTER);
         } catch (Exception e) {
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }
@@ -195,7 +195,7 @@ public class WebRtcService {
 
         ChannelDetails channelDetails = null;
         try {
-            channelDetails = awsManager.getChannelDetails(region, remoteUsername, ChannelRole.VIEWER);
+            channelDetails = awsManager.getChannelDetails(remoteUsername, ChannelRole.VIEWER);
         } catch (Exception e) {
             stateChangeCallback.accept(ServiceStateChange.exception(null, new ChannelDetailsException(e)));
         }

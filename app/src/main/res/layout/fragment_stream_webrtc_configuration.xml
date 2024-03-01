@@ -60,7 +60,7 @@
                     android:text="@string/start_broadcast"
                     tools:ignore="HardcodedText" />
 
-                <Switch
+                <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/mute"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
