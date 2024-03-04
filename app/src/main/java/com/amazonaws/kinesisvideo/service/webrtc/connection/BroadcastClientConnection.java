@@ -3,6 +3,8 @@ package com.amazonaws.kinesisvideo.service.webrtc.connection;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.InvalidCodecException;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.SdpAnswerCreationException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
@@ -202,10 +204,9 @@ public class BroadcastClientConnection extends AbstractClientConnection {
                 if (error.contains("ERROR_CONTENT")) {
                     String codecError = "No supported codec is present in the offer!";
                     Log.e(TAG, codecError);
-                    // TODO: Better exceptions
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception(codecError)));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new InvalidCodecException()));
                 } else {
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception(error)));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new SdpAnswerCreationException(error)));
                 }
             }
         }, sdpMediaConstraints);

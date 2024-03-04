@@ -6,6 +6,9 @@ import android.util.Log;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.NoAwsCredentialsException;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.SignalingServiceWebSocketClientConnectionException;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.SignalingServiceWebSocketInvalidClientException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
@@ -63,8 +66,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
             Log.d(getTag(), "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
         } catch (final Exception e) {
             Log.e(getTag(), "Exception with websocket client: " + e);
-            // TODO: Better exceptions
-            throw new Exception("Error in connecting to signaling service");
+            throw new SignalingServiceWebSocketClientConnectionException(e);
         }
 
         if (isValidClient()) {
@@ -72,8 +74,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
             onValidClient();
         } else {
             Log.e(getTag(), "Error in connecting to signaling service");
-            // TODO: Better exceptions
-            throw new Exception("Error in connecting to signaling service");
+            throw new SignalingServiceWebSocketInvalidClientException();
         }
     }
 
@@ -271,8 +272,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
             .orElse("");
 
         if (accessKey.isEmpty() || secretKey.isEmpty()) {
-            // TODO: Make a custom exception
-            throw new Exception("Failed to fetch credentials!");
+            throw new NoAwsCredentialsException();
         }
 
         return AwsV4Signer.sign(

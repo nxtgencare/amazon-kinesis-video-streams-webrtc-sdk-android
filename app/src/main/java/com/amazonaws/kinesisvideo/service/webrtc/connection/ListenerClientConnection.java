@@ -3,6 +3,7 @@ package com.amazonaws.kinesisvideo.service.webrtc.connection;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.InvalidSdpClientExcception;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
@@ -50,8 +51,7 @@ public class ListenerClientConnection extends AbstractClientConnection {
                 if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
-                    // TODO: Better exception
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new Exception("SDP Client invalid")));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new InvalidSdpClientExcception()));
                 }
             }
         }, sdpMediaConstraints);
