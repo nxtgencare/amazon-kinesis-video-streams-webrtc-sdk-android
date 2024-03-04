@@ -44,7 +44,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
     private final Map<String, PeerConnection> peerConnectionFoundMap = new ConcurrentHashMap<>();
 
     /**
-     * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
+     * Mapping of the peer's sender id to its received ICE candidates.
      * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
      * this queue until after we send the answer and the peer connection is established.
      */
@@ -160,6 +160,11 @@ public class BroadcastClientConnection extends AbstractClientConnection {
         return null;
     }
 
+    @Override
+    protected void handleSdpAnswer(Event evt, String peerConnectionKey) {
+        // Listener handles Sdp Answer
+    }
+
     private void addStreamToLocalPeer(PeerConnection peerConnection) {
         final MediaStream stream = peerConnectionFactory.createLocalMediaStream(LOCAL_MEDIA_STREAM_LABEL);
         if (!stream.addTrack(localAudioTrack)) {
@@ -170,11 +175,6 @@ public class BroadcastClientConnection extends AbstractClientConnection {
             peerConnection.addTrack(stream.audioTracks.get(0), Collections.singletonList(stream.getId()));
             Log.d(TAG, "Sending audio track");
         }
-    }
-
-    @Override
-    protected void handleSdpAnswer(Event evt, String peerConnectionKey) {
-        // Listener should handle Sdp Answer?
     }
 
     private void createSdpAnswer(String recipientClientId, PeerConnection peerConnection) {
