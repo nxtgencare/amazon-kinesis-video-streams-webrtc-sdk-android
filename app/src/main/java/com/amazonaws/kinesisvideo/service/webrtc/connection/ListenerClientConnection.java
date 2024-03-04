@@ -11,18 +11,23 @@ import com.amazonaws.kinesisvideo.utils.Constants;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
+import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ListenerClientConnection extends AbstractClientConnection {
     private static final String TAG = "ListenerClientConnection";
     protected String clientId;
+    private Optional<PeerManager> peerManager = Optional.empty();
 
     public ListenerClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, String clientId, Consumer<ServiceStateChange> stateChangeCallback) {
         super(peerConnectionFactory, channelDetails, stateChangeCallback);
@@ -62,12 +67,16 @@ public class ListenerClientConnection extends AbstractClientConnection {
     @Override
     protected void onValidClient() {
         Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer");
-        PeerConnection peerConnection = getPeerConnectionWithSdpOffer();
-        peerConnectionFoundMap.put(clientId, peerConnection);
+        peerManager = Optional
+            .of(getPeerConnectionWithSdpOffer())
+            .map(c -> new PeerManager(channelDetails.getChannelName(), ChannelRole.VIEWER, c));
+
         stateChangeCallback.accept(
             ServiceStateChange.iceConnectionStateChange(
                 channelDetails,
-                peerConnection.iceConnectionState()
+                peerManager.flatMap(PeerManager::getPeerConnection)
+                    .map(PeerConnection::iceConnectionState)
+                    .orElse(PeerConnection.IceConnectionState.FAILED)
             )
         );
     }
@@ -90,16 +99,51 @@ public class ListenerClientConnection extends AbstractClientConnection {
     }
 
     @Override
+    protected void handleSdpAnswer(Event evt, String peerConnectionKey) {
+        Log.d(getTag(), "Answer received: SenderClientId=" + peerConnectionKey);
+        Log.d(getTag(), "SDP answer received from signaling");
+        final String sdp = Event.parseSdpEvent(evt);
+        final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
+        Optional<PeerConnection> maybePeerConnection = getPeerConnection(peerConnectionKey);
+
+        maybePeerConnection.ifPresent(peerConnection -> {
+            peerConnection.setRemoteDescription(new KinesisVideoSdpObserver() {
+                @Override
+                public void onCreateFailure(final String error) {
+                    super.onCreateFailure(error);
+                }
+            }, sdpAnswer);
+        });
+    }
+
+    @Override
+    protected void addCandidateToPending(String peerConnectionKey, IceCandidate iceCandidate) {
+        // Listener doesn't queue pending connections.
+    }
+
+    @Override
+    protected void handlePendingIceCandidates(String peerConnectionKey, PeerConnection peerConnection) {
+        // Listener doesn't queue pending connections
+    }
+
+    @Override
+    protected Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
+        return peerManager.flatMap(PeerManager::getPeerConnection);
+    }
+
+    @Override
+    protected void cleanupPeerConnections() {
+        peerManager.flatMap(PeerManager::getPeerConnection).ifPresent(PeerConnection::close);
+        peerManager = Optional.empty();
+    }
+
+    @Override
     public String getTag() {
         return TAG;
     }
 
     @Override
     public List<PeerManager> getPeerStatus() {
-        return peerConnectionFoundMap
-            .values()
-            .stream()
-            .map(p -> new PeerManager(channelDetails.getChannelName(), ChannelRole.VIEWER, p))
-            .collect(Collectors.toList());
+        return peerManager.map(Arrays::asList).orElse(new ArrayList<>());
     }
 }

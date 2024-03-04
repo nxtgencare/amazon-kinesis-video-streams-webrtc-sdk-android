@@ -13,7 +13,6 @@ import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
-import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 import com.google.gson.Gson;
 
@@ -22,16 +21,11 @@ import org.webrtc.IceCandidate;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SessionDescription;
 
 import java.net.URI;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
@@ -45,20 +39,6 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
     protected volatile SignalingServiceWebSocketClient client;
     protected final ChannelDetails channelDetails;
     protected final Consumer<ServiceStateChange> stateChangeCallback;
-
-    /**
-     * Mapping of established peer connections to the peer's sender id. In other words, if an SDP
-     * offer/answer for a peer connection has been received and sent, the PeerConnection is added
-     * to this map.
-     */
-    protected final Map<String, PeerConnection> peerConnectionFoundMap = new ConcurrentHashMap<>();
-
-    /**
-     * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
-     * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
-     * this queue until after we send the answer and the peer connection is established.
-     */
-    private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
 
     public AbstractClientConnection(PeerConnectionFactory peerConnectionFactory, ChannelDetails channelDetails, Consumer<ServiceStateChange> stateChangeCallback) {
         this.peerConnectionFactory = peerConnectionFactory;
@@ -78,9 +58,6 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
         final URI signedUri = getSignedUri(channelDetails, creds, endpoint);
         final String wsHost = signedUri.toString();
 
-        // Step 11. Create SignalingServiceWebSocketClient.
-        //          This is the actual client that is used to send messages over the signaling channel.
-        //          SignalingServiceWebSocketClient will attempt to open the connection in its constructor.
         try {
             client = new SignalingServiceWebSocketClient(getTag(), wsHost, this, Executors.newFixedThreadPool(10));
             Log.d(getTag(), "Client connection " + (client.isOpen() ? "Successful" : "Failed"));
@@ -100,37 +77,9 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
         }
     }
 
-    public abstract void handleSdpOffer(Event offerEvent);
-
-    protected abstract void onValidClient();
-
-    protected abstract String buildEndPointUri();
-
-    /**
-     * Called once the peer connection is established. Checks the pending ICE candidate queue to see
-     * if we have received any before we finished sending the SDP answer. If so, add those ICE
-     * candidates to the peer connection belonging to this clientId.
-     *
-     * @param clientId The sender client id of the peer whose peer connection was just established.
-     * @see #pendingIceCandidatesMap
-     */
-    public void handlePendingIceCandidates(final String clientId, final PeerConnection peerConnection) {
-        // Add any pending ICE candidates from the queue for the client ID
-        Log.d(getTag(), "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
-        final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
-        while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
-            final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
-            final boolean addIce = peerConnection.addIceCandidate(iceCandidate);
-            Log.d(getTag(), "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
-            pendingIceCandidatesQueueByClientId.remove();
-        }
-        // After sending pending ICE candidates, the client ID's peer connection need not be tracked
-        pendingIceCandidatesMap.remove(clientId);
-    }
-
     public void checkAndAddIceCandidate(final Event message, final IceCandidate iceCandidate) {
         String peerConnectionKey = getPeerConnectionKey(message);
-        Optional<PeerConnection> maybePeerConnection = Optional.ofNullable(peerConnectionFoundMap.get(peerConnectionKey));
+        Optional<PeerConnection> maybePeerConnection = getPeerConnection(peerConnectionKey);
         maybePeerConnection.ifPresent(
             peerConnection -> {
                 // This is the case where peer connection is established and ICE candidates are received for the established
@@ -139,25 +88,17 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
                 // Remote sent us ICE candidates, add to local peer connection
                 final boolean addIce = peerConnection.addIceCandidate(iceCandidate);
                 Log.d(getTag(), "Added ice candidate " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+
+                if (addIce) {
+                    Log.d(getTag(), "Answer Client ID: " + peerConnectionKey);
+                    // Check if ICE candidates are available in the queue and add the candidate
+                    handlePendingIceCandidates(peerConnectionKey, maybePeerConnection.get());
+                }
             }
         );
 
         if (!maybePeerConnection.isPresent()) {
-            // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
-            // Once the peer connection is found, add them directly instead of adding it to the queue.
-            Log.d(getTag(), "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
-
-            // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
-            if (pendingIceCandidatesMap.containsKey(peerConnectionKey)) {
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(peerConnectionKey);
-                pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
-            } else {
-                // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
-                final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
-                pendingIceCandidatesQueueByClientId.add(iceCandidate);
-                pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
-            }
+            addCandidateToPending(peerConnectionKey, iceCandidate);
         }
     }
 
@@ -180,7 +121,6 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
         }
 
         String peerConnectionKey = getPeerConnectionKey(evt);
-
         switch (evt.getMessageType().toUpperCase()) {
             case "SDP_OFFER":
                 Log.d(getTag(), "Offer received: SenderClientId=" + peerConnectionKey);
@@ -188,27 +128,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
                 handleSdpOffer(evt);
                 break;
             case "SDP_ANSWER":
-                Log.d(getTag(), "Answer received: SenderClientId=" + peerConnectionKey);
-                Log.d(getTag(), "SDP answer received from signaling");
-                final String sdp = Event.parseSdpEvent(evt);
-                final SessionDescription sdpAnswer = new SessionDescription(SessionDescription.Type.ANSWER, sdp);
-
-                Optional<PeerConnection> maybePeerConnection = Optional.ofNullable(
-                    peerConnectionFoundMap.get(peerConnectionKey)
-                );
-
-                maybePeerConnection.ifPresent(peerConnection -> {
-                    peerConnection.setRemoteDescription(new KinesisVideoSdpObserver() {
-                        @Override
-                        public void onCreateFailure(final String error) {
-                            super.onCreateFailure(error);
-                        }
-                    }, sdpAnswer);
-
-                    Log.d(getTag(), "Answer Client ID: " + peerConnectionKey);
-                    // Check if ICE candidates are available in the queue and add the candidate
-                    handlePendingIceCandidates(peerConnectionKey, peerConnection);
-                });
+                handleSdpAnswer(evt, peerConnectionKey);
                 break;
             case "ICE_CANDIDATE":
                 Log.d(getTag(), "Ice Candidate received: SenderClientId=" + peerConnectionKey);
@@ -303,26 +223,37 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
     }
 
     public void onDestroy() {
-        peerConnectionFoundMap.values().forEach(PeerConnection::close);
+        cleanupPeerConnections();
+        cleanupClientConnection();
+    }
 
+    public void cleanupClientConnection() {
         if (isValidClient()) {
             client.disconnect();
         }
 
         client = null;
-        peerConnectionFoundMap.clear();
-        pendingIceCandidatesMap.clear();
     }
 
     public void onException(Exception e) {
         stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, e));
     }
 
-    public abstract String getTag();
+    protected abstract void onValidClient();
+
+    public abstract void handleSdpOffer(Event offerEvent);
+    protected abstract void handleSdpAnswer(Event evt, String peerConnectionKey);
+    protected abstract void addCandidateToPending(String peerConnectionKey, IceCandidate iceCandidate);
+    protected abstract void handlePendingIceCandidates(String peerConnectionKey, PeerConnection peerConnection);
+
+    protected abstract void cleanupPeerConnections();
+
+    protected abstract Optional<PeerConnection> getPeerConnection(String peerConnectionKey);
 
     public abstract List<PeerManager> getPeerStatus();
 
-
+    protected abstract String buildEndPointUri();
+    public abstract String getTag();
 
     /**
      * Constructs and returns signed URL for the specified endpoint.

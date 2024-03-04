@@ -12,6 +12,7 @@ import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 
 import org.webrtc.AudioTrack;
+import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
 import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
@@ -19,7 +20,12 @@ import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -27,6 +33,20 @@ public class BroadcastClientConnection extends AbstractClientConnection {
     private static final String TAG = "BroadcastClientConnection";
     private static final String LOCAL_MEDIA_STREAM_LABEL = "BroadcastClientMediaStream";
     private final AudioTrack localAudioTrack;
+
+    /**
+     * Mapping of established peer connections to the peer's sender id. In other words, if an SDP
+     * offer/answer for a peer connection has been received and sent, the PeerConnection is added
+     * to this map.
+     */
+    private final Map<String, PeerConnection> peerConnectionFoundMap = new ConcurrentHashMap<>();
+
+    /**
+     * Only used when we are master. Mapping of the peer's sender id to its received ICE candidates.
+     * Since we can receive ICE Candidates before we have sent the answer, we hold ICE candidates in
+     * this queue until after we send the answer and the peer connection is established.
+     */
+    private final Map<String, Queue<IceCandidate>> pendingIceCandidatesMap = new ConcurrentHashMap<>();
 
     public BroadcastClientConnection(
         PeerConnectionFactory peerConnectionFactory,
@@ -49,6 +69,29 @@ public class BroadcastClientConnection extends AbstractClientConnection {
         createSdpAnswer(recipientClientId, peerConnection);
     }
 
+    /**
+     * Called once the peer connection is established. Checks the pending ICE candidate queue to see
+     * if we have received any before we finished sending the SDP answer. If so, add those ICE
+     * candidates to the peer connection belonging to this clientId.
+     *
+     * @param clientId The sender client id of the peer whose peer connection was just established.
+     * @see #pendingIceCandidatesMap
+     */
+    @Override
+    public void handlePendingIceCandidates(final String clientId, final PeerConnection peerConnection) {
+        // Add any pending ICE candidates from the queue for the client ID
+        Log.d(getTag(), "Pending ice candidates found? " + pendingIceCandidatesMap.get(clientId));
+        final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(clientId);
+        while (pendingIceCandidatesQueueByClientId != null && !pendingIceCandidatesQueueByClientId.isEmpty()) {
+            final IceCandidate iceCandidate = pendingIceCandidatesQueueByClientId.peek();
+            final boolean addIce = peerConnection.addIceCandidate(iceCandidate);
+            Log.d(getTag(), "Added ice candidate after SDP exchange " + iceCandidate + " " + (addIce ? "Successfully" : "Failed"));
+            pendingIceCandidatesQueueByClientId.remove();
+        }
+        // After sending pending ICE candidates, the client ID's peer connection need not be tracked
+        pendingIceCandidatesMap.remove(clientId);
+    }
+
     @Override
     protected void onValidClient() {
         stateChangeCallback.accept(ServiceStateChange.waitingForConnection(channelDetails));
@@ -65,6 +108,44 @@ public class BroadcastClientConnection extends AbstractClientConnection {
         );
     }
 
+    @Override
+    protected void addCandidateToPending(String peerConnectionKey, IceCandidate iceCandidate) {
+        // If answer/offer is not received, it means peer connection is not found. Hold the received ICE candidates in the map.
+        // Once the peer connection is found, add them directly instead of adding it to the queue.
+        Log.d(getTag(), "SDP exchange is not complete. Ice candidate " + iceCandidate + " + added to pending queue");
+
+        // If the entry for the client ID already exists (in case of subsequent ICE candidates), update the queue
+        if (pendingIceCandidatesMap.containsKey(peerConnectionKey)) {
+            final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = pendingIceCandidatesMap.get(peerConnectionKey);
+
+            if (pendingIceCandidatesQueueByClientId != null) {
+                pendingIceCandidatesQueueByClientId.add(iceCandidate);
+            }
+
+            pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
+        } else {
+            // If the first ICE candidate before peer connection is received, add entry to map and ICE candidate to a queue
+            final Queue<IceCandidate> pendingIceCandidatesQueueByClientId = new LinkedList<>();
+            pendingIceCandidatesQueueByClientId.add(iceCandidate);
+            pendingIceCandidatesMap.put(peerConnectionKey, pendingIceCandidatesQueueByClientId);
+        }
+    }
+
+    @Override
+    protected Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
+        return Optional.ofNullable(peerConnectionFoundMap.get(peerConnectionKey));
+    }
+
+    @Override
+    protected void cleanupPeerConnections() {
+        for (PeerConnection peerConnection : peerConnectionFoundMap.values()) {
+            peerConnection.close();
+        }
+
+        peerConnectionFoundMap.clear();
+        pendingIceCandidatesMap.clear();
+    }
+
     public PeerConnection createLocalPeerConnection(String recipientClientId) {
         PeerConnection peerConnection = super.createLocalPeerConnection(recipientClientId);
         addStreamToLocalPeer(peerConnection);
@@ -73,7 +154,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
     @Override
     public String getClientId() {
-        // Master has no client id
+        // Broadcaster has no client id
         return null;
     }
 
@@ -89,7 +170,11 @@ public class BroadcastClientConnection extends AbstractClientConnection {
         }
     }
 
-    // when local is set to be the master
+    @Override
+    protected void handleSdpAnswer(Event evt, String peerConnectionKey) {
+        // Listener should handle Sdp Answer?
+    }
+
     private void createSdpAnswer(String recipientClientId, PeerConnection peerConnection) {
         final MediaConstraints sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
@@ -138,11 +223,6 @@ public class BroadcastClientConnection extends AbstractClientConnection {
             .stream()
             .map(e -> new PeerManager(e.getKey(), ChannelRole.MASTER, e.getValue()))
             .collect(Collectors.toList());
-    }
-
-
-    public void removePeerConnection(String name) {
-        peerConnectionFoundMap.remove(name);
     }
 
 }
