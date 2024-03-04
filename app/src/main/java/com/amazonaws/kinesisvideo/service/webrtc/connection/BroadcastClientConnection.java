@@ -5,8 +5,8 @@ import android.util.Log;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.InvalidCodecException;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.SdpAnswerCreationException;
-import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
@@ -21,6 +21,7 @@ import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SessionDescription;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,7 +30,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class BroadcastClientConnection extends AbstractClientConnection {
     private static final String TAG = "BroadcastClientConnection";
@@ -41,7 +41,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
      * offer/answer for a peer connection has been received and sent, the PeerConnection is added
      * to this map.
      */
-    private final Map<String, PeerConnection> peerConnectionFoundMap = new ConcurrentHashMap<>();
+    private final Map<String, PeerManager> peerManagerMap = new ConcurrentHashMap<>();
 
     /**
      * Mapping of the peer's sender id to its received ICE candidates.
@@ -135,16 +135,18 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
     @Override
     protected Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
-        return Optional.ofNullable(peerConnectionFoundMap.get(peerConnectionKey));
+        return Optional
+            .ofNullable(peerManagerMap.get(peerConnectionKey))
+            .flatMap(PeerManager::getPeerConnection);
     }
 
     @Override
     protected void cleanupPeerConnections() {
-        for (PeerConnection peerConnection : peerConnectionFoundMap.values()) {
-            peerConnection.close();
+        for (PeerManager peerManager : peerManagerMap.values()) {
+            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
         }
 
-        peerConnectionFoundMap.clear();
+        peerManagerMap.clear();
         pendingIceCandidatesMap.clear();
     }
 
@@ -191,7 +193,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
                 if (client != null) {
                     client.sendSdpAnswer(answer);
-                    peerConnectionFoundMap.put(recipientClientId, peerConnection);
+                    peerManagerMap.put(recipientClientId, new PeerManager(recipientClientId, ChannelRole.MASTER, peerConnection));
                     handlePendingIceCandidates(recipientClientId, peerConnection);
                 }
             }
@@ -219,11 +221,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
     @Override
     public List<PeerManager> getPeerStatus() {
-        return peerConnectionFoundMap
-            .entrySet()
-            .stream()
-            .map(e -> new PeerManager(e.getKey(), ChannelRole.MASTER, e.getValue()))
-            .collect(Collectors.toList());
+        return new ArrayList<>(peerManagerMap.values());
     }
 
 }
