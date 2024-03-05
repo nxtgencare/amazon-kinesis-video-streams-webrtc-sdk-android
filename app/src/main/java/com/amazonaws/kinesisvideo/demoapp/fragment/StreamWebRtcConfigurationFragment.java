@@ -132,7 +132,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
                 username.setEnabled(false);
             });
             Thread thread = new Thread(() -> {
-                if (webRtcService.broadcastRunning()) {
+                if (webRtcService.isBroadcastEnabled()) {
                     webRtcService.stopBroadcast();
                 } else {
                     webRtcService.startBroadcast();
@@ -168,14 +168,14 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         runOnUiThread(() -> {
             Log.d(TAG, "Toast: " + webRtcServiceStateChange.toString());
 
-            if (webRtcService.broadcastRunning()) {
+            if (webRtcService.isBroadcastEnabled()) {
                 broadcastStatus.setText(String.format("Broadcasting on %s", webRtcService.getBroadcastChannelName()));
             } else {
                 broadcastStatus.setText(R.string.not_broadcasting);
                 username.setEnabled(true);
             }
 
-            startBroadcastButton.setText(webRtcService.broadcastRunning() ? R.string.stop : R.string.start_broadcast);
+            startBroadcastButton.setText(webRtcService.isBroadcastEnabled() ? R.string.stop : R.string.start_broadcast);
             startBroadcastButton.setEnabled(true);
 
             List<PeerManager> newViewers = webRtcService.getListenersConnectedToBroadcast();

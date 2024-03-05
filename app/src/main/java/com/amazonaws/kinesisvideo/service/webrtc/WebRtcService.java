@@ -52,6 +52,8 @@ public class WebRtcService {
     private Consumer<ServiceStateChange> stateChangeCallback;
 
     private boolean broadcastRunning;
+    private boolean broadcastEnabled;
+
     private final AudioTrack audioTrack;
 
     private String username;
@@ -115,7 +117,9 @@ public class WebRtcService {
             }
         );
 
-
+        if (!broadcastRunning && broadcastEnabled) {
+            startBroadcast();
+        }
 
     }
 
@@ -133,11 +137,13 @@ public class WebRtcService {
 
     public void setUsername(String username) { this.username = username; }
 
-    public boolean broadcastRunning() {
-        return broadcastRunning;
+    public boolean isBroadcastEnabled() {
+        return broadcastEnabled;
     }
 
     public void startBroadcast() {
+        broadcastEnabled = true;
+
         if (StringUtils.isEmpty(username)) {
             return;
         }
@@ -172,6 +178,8 @@ public class WebRtcService {
     }
 
     public void stopBroadcast() {
+        broadcastEnabled = false;
+
         for (PeerManager peerManager : getListenersConnectedToBroadcast()) {
             peerManager.getPeerConnection().ifPresent(PeerConnection::close);
         }
