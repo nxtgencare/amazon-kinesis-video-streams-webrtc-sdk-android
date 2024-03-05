@@ -6,57 +6,63 @@ import java.util.Optional;
 
 public class ServiceStateChange {
 
-    private ChannelDetails channelDetails;
+    private ChannelDescription channelDescription;
     private PeerConnection.IceConnectionState iceConnectionState;
     private Optional<Exception> exception = Optional.empty();
     private boolean waitingForConnection = false;
 
-    public ServiceStateChange(ChannelDetails channelDetails) {
-        this.channelDetails = channelDetails;
+    public ServiceStateChange(ChannelDescription channelDetails) {
+        this.channelDescription = channelDetails;
     }
 
-    public ServiceStateChange(ChannelDetails channelDetails, Exception e) {
-        this(channelDetails);
+    public ServiceStateChange(ChannelDescription channelDescription, Exception e) {
+        this(channelDescription);
         this.exception = Optional.of(e);
     }
 
-    public ServiceStateChange(ChannelDetails channelDetails, PeerConnection.IceConnectionState iceConnectionState) {
-        this(channelDetails);
+    public ServiceStateChange(ChannelDescription channelDescription, PeerConnection.IceConnectionState iceConnectionState) {
+        this(channelDescription);
         this.iceConnectionState = iceConnectionState;
     }
 
-    public ServiceStateChange(ChannelDetails channelDetails, boolean waitingForConnection) {
-        this(channelDetails);
+    public ServiceStateChange(ChannelDescription channelDescription, boolean waitingForConnection) {
+        this(channelDescription);
         this.waitingForConnection = waitingForConnection;
     }
 
-    public static ServiceStateChange exception(ChannelDetails channelDetails, Exception e) {
-        return new ServiceStateChange(channelDetails, e);
+    public static ServiceStateChange exception(ChannelDescription channelDescription, Exception e) {
+        return new ServiceStateChange(channelDescription, e);
     }
 
-    public static ServiceStateChange iceConnectionStateChange(ChannelDetails channelDetails, PeerConnection.IceConnectionState iceConnectionState) {
-        return new ServiceStateChange(channelDetails, iceConnectionState);
+    public static ServiceStateChange iceConnectionStateChange(ChannelDescription channelDescription, PeerConnection.IceConnectionState iceConnectionState) {
+        return new ServiceStateChange(channelDescription, iceConnectionState);
     }
 
-    public static ServiceStateChange waitingForConnection(ChannelDetails channelDetails) {
-        return new ServiceStateChange(channelDetails, true);
+    public static ServiceStateChange waitingForConnection(ChannelDescription channelDescription) {
+        return new ServiceStateChange(channelDescription, true);
     }
 
-    public static ServiceStateChange close(ChannelDetails channelDetails) {
-        return new ServiceStateChange(channelDetails);
+    public static ServiceStateChange close(ChannelDescription channelDescription) {
+        return new ServiceStateChange(channelDescription);
     }
 
     public PeerConnection.IceConnectionState getIceConnectionState() {
         return iceConnectionState == null ? PeerConnection.IceConnectionState.CLOSED : iceConnectionState;
     }
-    public ChannelDetails getChannelDetails() { return channelDetails; }
+    public ChannelDescription getChannelDescription() { return channelDescription; }
+
+    public Optional<Exception> getException() {
+        return exception;
+    }
 
     @Override
     public String toString() {
-        return (channelDetails == null ? "" : channelDetails + " ") +
+        return (channelDescription == null ? "" : channelDescription + " ") +
             (iceConnectionState != null ? iceConnectionState.toString() :
             exception
                 .map(Throwable::toString)
                 .orElse(waitingForConnection ? "Waiting for connection" : "Unknown state change"));
     }
+
+
 }

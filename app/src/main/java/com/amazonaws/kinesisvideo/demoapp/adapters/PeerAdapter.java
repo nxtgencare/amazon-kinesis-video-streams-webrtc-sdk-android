@@ -47,14 +47,14 @@ public class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         PeerManager peer = peers.get(position);
-        holder.name.setText(peer.getName());
+        holder.name.setText(peer.getChannelDescription().getChannelName());
         holder.status.setText(peer.getState().toString());
         holder.statusIcon
             .setCardBackgroundColor(ContextCompat.getColor(context, getColor(peer.getState())));
-        if (peer.getLocalRole() == ChannelRole.MASTER) {
+        if (peer.getChannelDescription().getRole() == ChannelRole.MASTER) {
             holder.remove.setVisibility(View.INVISIBLE);
         } else {
-            holder.remove.setOnClickListener(e -> removePeer.accept(peer.getName()));
+            holder.remove.setOnClickListener(e -> removePeer.accept(peer.getChannelDescription().getChannelName()));
         }
     }
 

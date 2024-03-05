@@ -2,6 +2,7 @@ package com.amazonaws.kinesisvideo.service.webrtc;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.util.Log;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
@@ -24,22 +25,24 @@ import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import javax.websocket.DeploymentException;
+
 public class WebRtcService {
     private static final String AUDIO_TRACK_ID = "WebRtcServiceTrackId";
+    private static final String TAG = "WebRtcService";
 
     protected PeerConnectionFactory peerConnectionFactory;
-    protected String region;
     protected AudioManager audioManager;
     protected int originalAudioMode;
     protected boolean originalSpeakerphoneOn;
@@ -55,15 +58,13 @@ public class WebRtcService {
     private final List<String> remoteUsernames = new ArrayList<>();
     private boolean mute = true;
 
-    private final Map<ChannelDescription, LocalDateTime> lastConnectedTime = new ConcurrentHashMap<>();
-
-    private final AwsManager awsManager;
+    private AwsManager awsManager;
 
     public WebRtcService(
         Context context,
         AudioManager audioManager,
         Consumer<ServiceStateChange> stateChangeCallBack
-    ) throws Exception {
+    ) throws AWSKinesisVideoClientCreationException {
         this.audioManager = audioManager;
         this.originalAudioMode = audioManager.getMode();
         this.originalSpeakerphoneOn = audioManager.isSpeakerphoneOn();
@@ -72,21 +73,50 @@ public class WebRtcService {
         this.peerConnectionFactory = PeerConnectionFactoryBuilder.build(context, rootEglBase);
         this.audioTrack = getAudioTrack();
 
-        try {
-            AWSCredentials credentials = AWSMobileClient.getInstance().getCredentials();
-            awsManager = new AwsManager(credentials);
-        } catch (Exception e) {
-            throw new AWSKinesisVideoClientCreationException(e);
-        }
+        refreshCredentials();
 
-        /*
         Timer healthMonitor = new Timer();
         healthMonitor.schedule(new TimerTask() {
            @Override
            public void run() {
                checkConnectionHealth();
            }
-        }, 0, 10000);*/
+        }, 0, 10000);
+    }
+
+    private void checkConnectionHealth() {
+        listenerClients.values().forEach(
+            c -> c.getPeerManagers().forEach(m -> {
+                String username = m.getChannelDescription().getChannelName();
+                if (m.requiresRestart()) {
+                    Log.d(TAG, String.format("Restarting %s listener connection", username));
+                    c.resetPeer(username);
+
+                    if (remoteUsernames.contains(username)) {
+                        startListener(username);
+                    } else {
+                        stateChangeCallback.accept(ServiceStateChange.close(m.getChannelDescription()));
+                    }
+                }
+            })
+        );
+
+        final List<String> peerManagersToRemove = new ArrayList<>();
+        maybeBroadcastClient.ifPresent(c -> {
+                c.getPeerManagers().stream()
+                    .filter(PeerManager::requiresRestart)
+                    .map(m -> m.getChannelDescription().getChannelName())
+                    .forEach(username -> {
+                        Log.d(TAG, String.format("Restarting %s broadcast connection", username));
+                        c.resetPeer(username);
+                        peerManagersToRemove.add(username);
+                    });
+                c.removePeers(peerManagersToRemove);
+            }
+        );
+
+
+
     }
 
     public void onDestroy() {
@@ -135,18 +165,20 @@ public class WebRtcService {
             audioTrack.setEnabled(!mute);
         } catch (Exception e) {
             broadcastRunning = false;
-            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails != null ? channelDetails.getChannelDescription() : null, e));
         }
 
         remoteUsernames.forEach(this::startListener);
     }
 
     public void stopBroadcast() {
-        disconnect();
+        for (PeerManager peerManager : getListenersConnectedToBroadcast()) {
+            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
+        }
 
         maybeBroadcastClient.ifPresent(c -> {
             c.onDestroy();
-            stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.getChannelDetails()));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.close(c.getChannelDetails().getChannelDescription()));
         });
         audioTrack.setEnabled(false);
         resetAudioManager();
@@ -164,18 +196,8 @@ public class WebRtcService {
 
     public void removeRemoteUserFromConference(String remoteUsername) {
         remoteUsernames.remove(remoteUsername);
-        Optional.ofNullable(listenerClients.get(remoteUsername)).ifPresent(AbstractClientConnection::onDestroy);
+        getListenerClient(remoteUsername).ifPresent(AbstractClientConnection::onDestroy);
         listenerClients.remove(remoteUsername);
-    }
-
-    public void disconnect() {
-        for (PeerManager peerManager : getListenersConnectedToBroadcast()) {
-            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
-        }
-
-        for (PeerManager peerManager : getRemoteBroadcastsListeningTo()) {
-            peerManager.getPeerConnection().ifPresent(PeerConnection::close);
-        }
     }
 
     private AudioTrack getAudioTrack() {
@@ -211,39 +233,54 @@ public class WebRtcService {
             connection.initWsConnection(awsManager.getCredentials());
             listenerClients.put(remoteUsername, connection);
         } catch (Exception e) {
-            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails, e));
+            stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails != null ? channelDetails.getChannelDescription() : null, e));
         }
     }
 
     private final Consumer<ServiceStateChange> stateChangeObserverAndForwarder = webRtcServiceStateChange -> {
-        ChannelDetails channelDetails = webRtcServiceStateChange.getChannelDetails();
-        if (channelDetails != null) {
-            if (channelDetails.getRole() == ChannelRole.MASTER) {
+        ChannelDescription channelDescription = webRtcServiceStateChange.getChannelDescription();
+        if (channelDescription != null) {
+            if (channelDescription.getRole() == ChannelRole.MASTER) {
                 broadcastRunning = maybeBroadcastClient.map(AbstractClientConnection::isValidClient).orElse(false);
+                maybeBroadcastClient
+                    .flatMap(c -> c.getPeerManager(channelDescription.getChannelName()))
+                    .ifPresent(m -> m.updateIceConnectionHistory(webRtcServiceStateChange.getIceConnectionState()));
+            } else {
+                getListenerClient(channelDescription.getChannelName())
+                    .flatMap(c -> c.getPeerManager(channelDescription.getChannelName()))
+                    .ifPresent(m -> m.updateIceConnectionHistory(webRtcServiceStateChange.getIceConnectionState()));
             }
+        }
 
-            if (broadcastRunning &&
-                channelDetails.getRole() == ChannelRole.VIEWER &&
-                remoteUsernames.contains(channelDetails.getChannelName()) &&
-                Arrays.asList(
-                        PeerConnection.IceConnectionState.FAILED,
-                        PeerConnection.IceConnectionState.CLOSED,
-                        PeerConnection.IceConnectionState.DISCONNECTED
-                ).contains(webRtcServiceStateChange.getIceConnectionState())
-            ) {
-                // Try to reconnect
-                startListener(channelDetails.getChannelName());
-            }
+        if (webRtcServiceStateChange.getException().isPresent() && webRtcServiceStateChange.getException().get() instanceof DeploymentException) {
+            DeploymentException de = (DeploymentException) webRtcServiceStateChange.getException().orElse(null);
 
-            if (webRtcServiceStateChange.getIceConnectionState() == PeerConnection.IceConnectionState.CONNECTED ||
-                !lastConnectedTime.containsKey(channelDetails.getChannelDescription())
-            ) {
-                lastConnectedTime.put(channelDetails.getChannelDescription(), LocalDateTime.now());
+            if (Optional.ofNullable(de.getMessage()).orElse("").contains("Handshake error")) {
+                try {
+                    refreshCredentials();
+                } catch (AWSKinesisVideoClientCreationException ex) {
+                    Log.e(TAG, "Exception trying to refresh credentials after handshake error", de);
+                    Log.e(TAG, "Credentials exception", ex);
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDescription, ex));
+                }
             }
         }
 
         stateChangeCallback.accept(webRtcServiceStateChange);
     };
+
+    private void refreshCredentials() throws AWSKinesisVideoClientCreationException {
+        try {
+            AWSCredentials credentials = AWSMobileClient.getInstance().getCredentials();
+            awsManager = new AwsManager(credentials);
+        } catch (Exception e) {
+            throw new AWSKinesisVideoClientCreationException(e);
+        }
+    }
+
+    private Optional<ListenerClientConnection> getListenerClient(String channelName) {
+        return Optional.ofNullable(listenerClients.get(channelName));
+    }
 
     public String getBroadcastChannelName() {
         return maybeBroadcastClient.map(c -> c.getChannelDetails().getChannelName()).orElse("");
@@ -251,14 +288,14 @@ public class WebRtcService {
 
     public List<PeerManager> getListenersConnectedToBroadcast() {
         return maybeBroadcastClient
-            .map(e -> e.getPeerStatus().stream()).orElse(Stream.empty())
+            .map(e -> e.getPeerManagers().stream()).orElse(Stream.empty())
             .collect(Collectors.toList());
     }
 
     public List<PeerManager> getRemoteBroadcastsListeningTo() {
         return listenerClients
             .values().stream()
-                .flatMap(e -> e.getPeerStatus().stream())
+                .flatMap(e -> e.getPeerManagers().stream())
                 .collect(Collectors.toList());
     }
 

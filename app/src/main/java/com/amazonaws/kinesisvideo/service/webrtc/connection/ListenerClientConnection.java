@@ -51,7 +51,7 @@ public class ListenerClientConnection extends AbstractClientConnection {
                 if (isValidClient()) {
                     client.sendSdpOffer(sdpOfferMessage);
                 } else {
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new InvalidSdpClientExcception()));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails.getChannelDescription(), new InvalidSdpClientExcception()));
                 }
             }
         }, sdpMediaConstraints);
@@ -69,11 +69,11 @@ public class ListenerClientConnection extends AbstractClientConnection {
         Log.d(getTag(), "Signaling service is connected: Sending offer as viewer to remote peer");
         peerManager = Optional
             .of(getPeerConnectionWithSdpOffer())
-            .map(c -> new PeerManager(channelDetails.getChannelName(), ChannelRole.VIEWER, c));
+            .map(c -> new PeerManager(channelDetails.getChannelDescription(), c));
 
         stateChangeCallback.accept(
             ServiceStateChange.iceConnectionStateChange(
-                channelDetails,
+                channelDetails.getChannelDescription(),
                 peerManager.flatMap(PeerManager::getPeerConnection)
                     .map(PeerConnection::iceConnectionState)
                     .orElse(PeerConnection.IceConnectionState.FAILED)
@@ -127,7 +127,12 @@ public class ListenerClientConnection extends AbstractClientConnection {
     }
 
     @Override
-    protected Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
+    public Optional<PeerManager> getPeerManager(String peerConnectionKey) {
+        return peerManager;
+    }
+
+    @Override
+    public Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
         return peerManager.flatMap(PeerManager::getPeerConnection);
     }
 
@@ -143,7 +148,12 @@ public class ListenerClientConnection extends AbstractClientConnection {
     }
 
     @Override
-    public List<PeerManager> getPeerStatus() {
+    public void resetPeer(String key) {
+        cleanupPeerConnections();
+    }
+
+    @Override
+    public List<PeerManager> getPeerManagers() {
         return peerManager.map(Arrays::asList).orElse(new ArrayList<>());
     }
 }

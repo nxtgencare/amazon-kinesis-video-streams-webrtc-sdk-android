@@ -5,6 +5,7 @@ import android.util.Log;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.InvalidCodecException;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.SdpAnswerCreationException;
+import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
@@ -96,7 +97,7 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
     @Override
     protected void onValidClient() {
-        stateChangeCallback.accept(ServiceStateChange.waitingForConnection(channelDetails));
+        stateChangeCallback.accept(ServiceStateChange.waitingForConnection(channelDetails.getChannelDescription()));
     }
 
     @Override
@@ -134,10 +135,13 @@ public class BroadcastClientConnection extends AbstractClientConnection {
     }
 
     @Override
-    protected Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
-        return Optional
-            .ofNullable(peerManagerMap.get(peerConnectionKey))
-            .flatMap(PeerManager::getPeerConnection);
+    public Optional<PeerManager> getPeerManager(String peerConnectionKey) {
+        return Optional.ofNullable(peerManagerMap.get(peerConnectionKey));
+    }
+
+    @Override
+    public Optional<PeerConnection> getPeerConnection(String peerConnectionKey) {
+        return getPeerManager(peerConnectionKey).flatMap(PeerManager::getPeerConnection);
     }
 
     @Override
@@ -193,7 +197,10 @@ public class BroadcastClientConnection extends AbstractClientConnection {
 
                 if (client != null) {
                     client.sendSdpAnswer(answer);
-                    peerManagerMap.put(recipientClientId, new PeerManager(recipientClientId, ChannelRole.MASTER, peerConnection));
+                    peerManagerMap.put(
+                        recipientClientId,
+                        new PeerManager(new ChannelDescription(channelDetails.getRegion(), recipientClientId, ChannelRole.MASTER), peerConnection)
+                    );
                     handlePendingIceCandidates(recipientClientId, peerConnection);
                 }
             }
@@ -206,9 +213,9 @@ public class BroadcastClientConnection extends AbstractClientConnection {
                 if (error.contains("ERROR_CONTENT")) {
                     String codecError = "No supported codec is present in the offer!";
                     Log.e(TAG, codecError);
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new InvalidCodecException()));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails.getChannelDescription(), new InvalidCodecException()));
                 } else {
-                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, new SdpAnswerCreationException(error)));
+                    stateChangeCallback.accept(ServiceStateChange.exception(channelDetails.getChannelDescription(), new SdpAnswerCreationException(error)));
                 }
             }
         }, sdpMediaConstraints);
@@ -220,8 +227,17 @@ public class BroadcastClientConnection extends AbstractClientConnection {
     }
 
     @Override
-    public List<PeerManager> getPeerStatus() {
+    public void resetPeer(String key) {
+        getPeerConnection(key).ifPresent(PeerConnection::close);
+        peerManagerMap.remove(key);
+    }
+
+    @Override
+    public List<PeerManager> getPeerManagers() {
         return new ArrayList<>(peerManagerMap.values());
     }
 
+    public void removePeers(List<String> peerManagersToRemove) {
+        peerManagersToRemove.forEach(peerManagerMap::remove);
+    }
 }

@@ -30,6 +30,7 @@ import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
 import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.service.webrtc.WebRtcService;
+import com.amazonaws.kinesisvideo.service.webrtc.exception.AWSKinesisVideoClientCreationException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.util.StringUtils;
 
@@ -88,7 +89,7 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
 
         try {
             webRtcService = new WebRtcService(getActivity(), audioManager, this::webRtcServiceStateChange);
-        } catch (Exception e) {
+        } catch (AWSKinesisVideoClientCreationException e) {
             throw new RuntimeException(e);
         }
 

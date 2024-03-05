@@ -55,7 +55,10 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
         return client != null && client.isOpen();
     }
 
-    public void initWsConnection(AWSCredentials creds) throws Exception {
+    public void initWsConnection(AWSCredentials creds) throws
+            SignalingServiceWebSocketClientConnectionException,
+            SignalingServiceWebSocketInvalidClientException,
+            NoAwsCredentialsException {
         // See https://docs.aws.amazon.com/kinesisvideostreams-webrtc-dg/latest/devguide/kvswebrtc-websocket-apis-1.html
         final String endpoint = buildEndPointUri();
         final URI signedUri = getSignedUri(channelDetails, creds, endpoint);
@@ -188,7 +191,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
             @Override
             public void onIceConnectionChange(final PeerConnection.IceConnectionState iceConnectionState) {
                 super.onIceConnectionChange(iceConnectionState);
-                stateChangeCallback.accept(ServiceStateChange.iceConnectionStateChange(channelDetails, iceConnectionState));
+                stateChangeCallback.accept(ServiceStateChange.iceConnectionStateChange(channelDetails.getChannelDescription(), iceConnectionState));
             }
         });
     }
@@ -237,7 +240,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
     }
 
     public void onException(Exception e) {
-        stateChangeCallback.accept(ServiceStateChange.exception(channelDetails, e));
+        stateChangeCallback.accept(ServiceStateChange.exception(channelDetails.getChannelDescription(), e));
     }
 
     protected abstract void onValidClient();
@@ -249,9 +252,10 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
 
     protected abstract void cleanupPeerConnections();
 
-    protected abstract Optional<PeerConnection> getPeerConnection(String peerConnectionKey);
+    public abstract Optional<PeerManager> getPeerManager(String peerConnectionKey);
+    public abstract Optional<PeerConnection> getPeerConnection(String peerConnectionKey);
 
-    public abstract List<PeerManager> getPeerStatus();
+    public abstract List<PeerManager> getPeerManagers();
 
     protected abstract String buildEndPointUri();
     public abstract String getTag();
@@ -262,7 +266,7 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
      * @param endpoint The websocket endpoint (master or viewer endpoint)
      * @return A signed URL. {@code null} if there was an issue fetching credentials.
      */
-    private static URI getSignedUri(ChannelDetails channelDetails, AWSCredentials creds, String endpoint) throws Exception {
+    private static URI getSignedUri(ChannelDetails channelDetails, AWSCredentials creds, String endpoint) throws NoAwsCredentialsException {
         final String accessKey = creds.getAWSAccessKeyId();
         final String secretKey = creds.getAWSSecretKey();
         final String sessionToken = Optional.of(creds)
@@ -286,4 +290,5 @@ public abstract class AbstractClientConnection implements MessageHandler.Whole<S
         );
     }
 
+    public abstract void resetPeer(String key);
 }
