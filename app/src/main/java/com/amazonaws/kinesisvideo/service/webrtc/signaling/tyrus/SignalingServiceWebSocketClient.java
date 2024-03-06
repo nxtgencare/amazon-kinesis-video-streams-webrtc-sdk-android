@@ -1,10 +1,10 @@
-package com.amazonaws.kinesisvideo.signaling.tyrus;
+package com.amazonaws.kinesisvideo.service.webrtc.signaling.tyrus;
 
 import android.util.Base64;
 import android.util.Log;
 
 import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
-import com.amazonaws.kinesisvideo.signaling.model.Message;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
 import com.google.gson.Gson;
 
 import org.glassfish.tyrus.client.ClientManager;

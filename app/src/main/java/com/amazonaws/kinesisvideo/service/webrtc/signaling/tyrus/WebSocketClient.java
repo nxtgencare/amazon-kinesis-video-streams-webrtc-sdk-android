@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.signaling.tyrus;
+package com.amazonaws.kinesisvideo.service.webrtc.signaling.tyrus;
 
 import static org.awaitility.Awaitility.await;
 
@@ -7,7 +7,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.amazonaws.kinesisvideo.service.webrtc.connection.AbstractClientConnection;
-import com.amazonaws.kinesisvideo.utils.Constants;
+import com.amazonaws.kinesisvideo.service.webrtc.utils.Constants;
 
 import org.glassfish.tyrus.client.ClientManager;
 import org.glassfish.tyrus.client.ClientProperties;

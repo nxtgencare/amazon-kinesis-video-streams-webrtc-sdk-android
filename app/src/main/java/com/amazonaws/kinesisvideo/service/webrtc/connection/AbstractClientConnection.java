@@ -11,10 +11,10 @@ import com.amazonaws.kinesisvideo.service.webrtc.exception.SignalingServiceWebSo
 import com.amazonaws.kinesisvideo.service.webrtc.exception.SignalingServiceWebSocketInvalidClientException;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
-import com.amazonaws.kinesisvideo.signaling.model.Event;
-import com.amazonaws.kinesisvideo.signaling.model.Message;
-import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
-import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Event;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.tyrus.SignalingServiceWebSocketClient;
+import com.amazonaws.kinesisvideo.service.webrtc.utils.AwsV4Signer;
 import com.amazonaws.kinesisvideo.service.webrtc.model.KinesisVideoPeerConnection;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 import com.google.gson.Gson;

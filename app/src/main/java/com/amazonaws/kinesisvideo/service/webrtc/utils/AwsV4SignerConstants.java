@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.utils;
+package com.amazonaws.kinesisvideo.service.webrtc.utils;
 
 public final class AwsV4SignerConstants {
     static final String ALGORITHM_AWS4_HMAC_SHA_256 = "AWS4-HMAC-SHA256";

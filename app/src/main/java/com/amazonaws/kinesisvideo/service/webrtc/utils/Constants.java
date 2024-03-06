@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.utils;
+package com.amazonaws.kinesisvideo.service.webrtc.utils;
 
 public class Constants {
     /**

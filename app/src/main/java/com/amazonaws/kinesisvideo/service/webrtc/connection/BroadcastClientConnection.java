@@ -8,9 +8,9 @@ import com.amazonaws.kinesisvideo.service.webrtc.exception.SdpAnswerCreationExce
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDescription;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
-import com.amazonaws.kinesisvideo.signaling.model.Event;
-import com.amazonaws.kinesisvideo.signaling.model.Message;
-import com.amazonaws.kinesisvideo.utils.Constants;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Event;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
+import com.amazonaws.kinesisvideo.service.webrtc.utils.Constants;
 import com.amazonaws.kinesisvideo.service.webrtc.model.KinesisVideoSdpObserver;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 

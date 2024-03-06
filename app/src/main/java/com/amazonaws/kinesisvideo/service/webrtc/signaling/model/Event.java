@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.signaling.model;
+package com.amazonaws.kinesisvideo.service.webrtc.signaling.model;
 
 import android.util.Base64;
 import android.util.Log;

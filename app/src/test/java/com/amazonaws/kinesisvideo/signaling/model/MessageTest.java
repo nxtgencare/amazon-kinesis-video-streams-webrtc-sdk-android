@@ -1,5 +1,7 @@
 package com.amazonaws.kinesisvideo.signaling.model;
 
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
+
 import static org.junit.Assert.*;
 
 import org.junit.Test;

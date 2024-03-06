@@ -1,4 +1,4 @@
-package com.amazonaws.kinesisvideo.utils;
+package com.amazonaws.kinesisvideo.service.webrtc.utils;
 
 import static com.google.common.hash.Hashing.sha256;
 import static org.apache.commons.lang3.StringUtils.EMPTY;

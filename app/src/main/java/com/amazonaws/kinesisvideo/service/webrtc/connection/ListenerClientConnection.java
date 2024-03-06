@@ -6,9 +6,9 @@ import com.amazonaws.kinesisvideo.service.webrtc.PeerManager;
 import com.amazonaws.kinesisvideo.service.webrtc.exception.InvalidSdpClientExcception;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ServiceStateChange;
 import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
-import com.amazonaws.kinesisvideo.signaling.model.Event;
-import com.amazonaws.kinesisvideo.signaling.model.Message;
-import com.amazonaws.kinesisvideo.utils.Constants;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Event;
+import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
+import com.amazonaws.kinesisvideo.service.webrtc.utils.Constants;
 import com.amazonaws.kinesisvideo.service.webrtc.model.KinesisVideoSdpObserver;
 
 import org.webrtc.IceCandidate;
