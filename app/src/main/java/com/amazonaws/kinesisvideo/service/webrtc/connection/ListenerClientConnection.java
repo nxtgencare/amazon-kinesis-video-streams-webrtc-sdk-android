@@ -9,8 +9,7 @@ import com.amazonaws.kinesisvideo.service.webrtc.model.ChannelDetails;
 import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.utils.Constants;
-import com.amazonaws.kinesisvideo.webrtc.KinesisVideoSdpObserver;
-import com.amazonaws.services.kinesisvideo.model.ChannelRole;
+import com.amazonaws.kinesisvideo.service.webrtc.model.KinesisVideoSdpObserver;
 
 import org.webrtc.IceCandidate;
 import org.webrtc.MediaConstraints;
@@ -23,7 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class ListenerClientConnection extends AbstractClientConnection {
     private static final String TAG = "ListenerClientConnection";
@@ -138,7 +136,7 @@ public class ListenerClientConnection extends AbstractClientConnection {
 
     @Override
     protected void cleanupPeerConnections() {
-        peerManager.flatMap(PeerManager::getPeerConnection).ifPresent(PeerConnection::close);
+        peerManager.ifPresent(PeerManager::close);
         peerManager = Optional.empty();
     }
 

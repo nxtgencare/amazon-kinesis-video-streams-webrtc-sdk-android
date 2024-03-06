@@ -15,7 +15,7 @@ import com.amazonaws.kinesisvideo.signaling.model.Event;
 import com.amazonaws.kinesisvideo.signaling.model.Message;
 import com.amazonaws.kinesisvideo.signaling.tyrus.SignalingServiceWebSocketClient;
 import com.amazonaws.kinesisvideo.utils.AwsV4Signer;
-import com.amazonaws.kinesisvideo.webrtc.KinesisVideoPeerConnection;
+import com.amazonaws.kinesisvideo.service.webrtc.model.KinesisVideoPeerConnection;
 import com.amazonaws.services.kinesisvideo.model.ChannelRole;
 import com.google.gson.Gson;
 

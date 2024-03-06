@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +58,7 @@ public class WebRtcService {
     private final AudioTrack audioTrack;
 
     private String username;
-    private final List<String> remoteUsernames = new ArrayList<>();
+    private final Set<String> remoteUsernames = ConcurrentHashMap.newKeySet();
     private boolean mute = true;
 
     private AwsManager awsManager;
@@ -92,7 +93,7 @@ public class WebRtcService {
                 String username = m.getChannelDescription().getChannelName();
                 if (m.requiresRestart()) {
                     Log.d(TAG, String.format("Restarting %s listener connection", username));
-                    c.resetPeer(username);
+                    c.onDestroy();
 
                     if (remoteUsernames.contains(username)) {
                         startListener(username);
@@ -173,6 +174,7 @@ public class WebRtcService {
             broadcastRunning = false;
             stateChangeObserverAndForwarder.accept(ServiceStateChange.exception(channelDetails != null ? channelDetails.getChannelDescription() : null, e));
         }
+
 
         remoteUsernames.forEach(this::startListener);
     }

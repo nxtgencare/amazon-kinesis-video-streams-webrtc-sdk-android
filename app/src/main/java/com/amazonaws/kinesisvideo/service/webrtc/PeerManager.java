@@ -50,4 +50,7 @@ public class PeerManager {
         return false;
     }
 
+    public void close() {
+        peerConnection.ifPresent(PeerConnection::close);
+    }
 }
