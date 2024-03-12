@@ -10,6 +10,13 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url "https://artifactory.nxtgencare.com/artifactory/gradle-dev-local"
+            credentials {
+                username = artifactoryUserName
+                password = artifactoryPassword
+            }
+        }
     }
 }
 rootProject.name = "amazon-kinesis-video-streams-webrtc-sdk-android"

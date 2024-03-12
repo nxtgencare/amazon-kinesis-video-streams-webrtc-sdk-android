@@ -1,6 +1,6 @@
-package com.amazonaws.kinesisvideo.service.webrtc.signaling.model;
+package com.nxtgencare.kinesisvideo.service.webrtc.signaling.model;
 
-import com.amazonaws.kinesisvideo.service.webrtc.signaling.model.Message;
+import com.nxtgencare.kinesisvideo.service.webrtc.signaling.model.Message;
 
 import static org.junit.Assert.*;
 
