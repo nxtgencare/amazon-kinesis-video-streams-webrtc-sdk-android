@@ -26,6 +26,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.amazonaws.kinesisvideo.demoapp.BuildConfig;
 import com.amazonaws.kinesisvideo.demoapp.R;
 import com.amazonaws.kinesisvideo.demoapp.adapters.PeerAdapter;
 import com.nxtgencare.kinesisvideo.service.webrtc.PeerManager;
@@ -88,7 +89,12 @@ public class StreamWebRtcConfigurationFragment extends Fragment {
         AudioManager audioManager = (AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE);
 
         try {
-            webRtcService = new WebRtcService(getActivity(), audioManager, this::webRtcServiceStateChange);
+            webRtcService = new WebRtcService(
+                getActivity(),
+                audioManager,
+                BuildConfig.AWS_REGION,
+                this::webRtcServiceStateChange
+            );
         } catch (AWSKinesisVideoClientCreationException e) {
             throw new RuntimeException(e);
         }

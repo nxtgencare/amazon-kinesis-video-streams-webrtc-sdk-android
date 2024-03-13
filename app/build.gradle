@@ -19,6 +19,11 @@ android {
         properties.load(project.rootProject.file('local.properties').newDataInputStream())
         buildConfigField "String", "KINESIS_USERNAME", "\"" + properties.getProperty('kinesis.username') + "\""
         buildConfigField "String", "KINESIS_PASSWORD", "\"" + properties.getProperty('kinesis.password') + "\""
+        buildConfigField "String", "AWS_REGION", "\"" + properties.getProperty('aws.region') + "\""
+        buildConfigField "String", "AWS_COGNITO_IDENTITY_APP_POOL_ID", "\"" + properties.getProperty('aws.cognito_identity.app_pool_id') + "\""
+        buildConfigField "String", "AWS_COGNITO_USERPOOL_APP_CLIENT_SECRET", "\"" + properties.getProperty('aws.cognito_userpool.app_client_secret') + "\""
+        buildConfigField "String", "AWS_COGNITO_USERPOOL_APP_CLIENT_ID", "\"" + properties.getProperty('aws.cognito_userpool.app_client_id') + "\""
+        buildConfigField "String", "AWS_COGNITO_USERPOOL_POOL_ID", "\"" + properties.getProperty('aws.cognito_userpool.pool_id') + "\""
     }
 
     buildTypes {
@@ -46,7 +51,7 @@ dependencies {
     implementation("com.amazonaws:aws-android-sdk-auth-userpools:$aws_version@aar") { transitive = true }
     implementation("com.amazonaws:aws-android-sdk-auth-ui:$aws_version@aar") { transitive = true }
     implementation("io.getstream:stream-webrtc-android:1.1.0")
-    implementation("com.nxtgencare.kinesisvideo:nxtgencare-webrtc-sdk:v0.0.2@aar") { transitive = true }
+    implementation("com.nxtgencare.kinesisvideo:nxtgencare-webrtc-sdk:v0.0.4@aar") { transitive = true }
 
     implementation 'org.awaitility:awaitility:4.2.0'
     implementation 'org.json:json:20190722'

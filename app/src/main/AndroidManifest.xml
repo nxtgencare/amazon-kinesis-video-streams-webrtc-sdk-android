@@ -30,7 +30,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -39,14 +38,6 @@
             android:label="@string/title_activity_simple_nav"
             android:theme="@style/AppTheme">
         </activity>
-        <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.WebRtcActivity"
-            android:label="@string/title_activity_webrtc"
-            android:theme="@style/AppTheme"
-            android:screenOrientation="portrait"/>
-        <activity android:name="com.amazonaws.kinesisvideo.demoapp.activity.ViewerWebRtcActivity"
-            android:label="@string/title_activity_webrtc"
-            android:theme="@style/AppTheme"
-            android:screenOrientation="portrait"/>
     </application>
 
 </manifest>
